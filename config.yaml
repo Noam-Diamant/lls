@@ -1,5 +1,5 @@
 # Local working directory (user sets this)
-local_root:
+local_root: "./results"
 
 # Models (load from HuggingFace)
 teacher_model: "allenai/OLMo-2-0425-1B-Instruct"

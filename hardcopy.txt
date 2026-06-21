@@ -1,0 +1,18 @@
+Installing collected packages: inflect
+Successfully installed inflect-7.5.0
+(crisp_env) bash-5.1$ pip install inflect'
+> ^C
+(crisp_env) bash-5.1$ python logit_linear_selection.py
+Loading tokenizer for preprocessing...
+config.json: 100%|ˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆ| 625/625 [00:00<00:00, 1.16MB/s]
+tokenizer_config.json: 4.88kB [00:00, 5.88MB/s]
+tokenizer.json: 7.14MB [00:00, 21.8MB/s]
+special_tokens_map.json: 100%|ˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆ| 581/581 [00:00<00:00, 1.20MB/s]
+Loading dataset from HuggingFace: stack_exchange_paired...
+README.md: 7.51kB [00:00, 7.90MB/s]
+data/alpaca_farm_gpt4_pref-00000-of-0000(&): 100%|ˆˆˆˆˆˆˆˆˆˆˆˆˆˆ| 19.2M/19.2M [00:03<00:00, 6.04MB/s]
+data/alpaca_farm_human_pref-00000-of-000(&): 100%|ˆˆˆˆˆˆˆˆˆˆˆˆˆˆ| 9.60M/9.60M [00:01<00:00, 5.28MB/s]
+data/argilla_dpo_mix-00000-of-00001.json(&): 100%|ˆˆˆˆˆˆˆˆˆˆˆˆˆˆ| 43.1M/43.1M [00:02<00:00, 21.4MB/s]
+data/capybara-00000-of-00001.jsonl: 100%|ˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆˆ| 82.5M/82.5M [00:03<00:00, 21.6MB/s]
+data/chatbot_arena_2023-00000-of-00001.j(&): 100%|ˆˆˆˆˆˆˆˆˆˆˆˆˆˆ| 47.4M/47.4M [00:02<00:00, 23.5MB/s]
+data/chatbot_arena_2024-00000-of-00001.j(&):   0%|                        | 0.00/109M [01:44<?, ?B/s]
