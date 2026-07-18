@@ -20,6 +20,55 @@ from itertools import takewhile
 Pair = Tuple[Union[str, List[int]], Union[str, List[int]]]
 _inflect_engine = inflect.engine()
 
+
+# ---------------------------------------------------------------------------
+# Model / tokenizer detection and loading helpers
+# ---------------------------------------------------------------------------
+
+def is_gemma_model(tokenizer_or_name) -> bool:
+    """Return True when the tokenizer (or model-name string) is a Gemma/Gemma-2 model."""
+    if isinstance(tokenizer_or_name, str):
+        return "gemma" in tokenizer_or_name.lower()
+    return "Gemma" in type(tokenizer_or_name).__name__
+
+
+def assert_chat_template(tokenizer, model_name: str = "") -> None:
+    """Raise a clear error when the tokenizer has no chat template (base models)."""
+    if getattr(tokenizer, "chat_template", None) is None:
+        label = model_name or type(tokenizer).__name__
+        raise ValueError(
+            f"Tokenizer for '{label}' has no chat_template. "
+            "LLS requires an instruct/chat model. "
+            "Use a -Instruct, -IT, or -Chat variant instead of a base checkpoint."
+        )
+
+
+def get_model_load_kwargs(model_name: str) -> dict:
+    """Return architecture-specific kwargs for AutoModelForCausalLM.from_pretrained."""
+    if "gemma" in model_name.lower():
+        # Gemma-2 softcapping is numerically sensitive; eager attention avoids
+        # silent NaNs during log-prob scoring and DPO training.
+        return {"attn_implementation": "eager"}
+    return {}
+
+
+def load_tokenizer(model_name: str) -> AutoTokenizer:
+    """Load a tokenizer, set pad_token_id from eos if missing, and verify a chat template exists."""
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    assert_chat_template(tokenizer, model_name)
+    return tokenizer
+
+
+def load_causal_lm(model_name: str, precision: torch.dtype = torch.bfloat16) -> AutoModelForCausalLM:
+    """Load a causal LM with precision and architecture-specific kwargs."""
+    kwargs = get_model_load_kwargs(model_name)
+    return AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=precision, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+
 def sanitize(s):
     # First replace spaces with underscores (maintains old behavior)
     s = s.replace(" ", "_")
@@ -45,21 +94,25 @@ def clear_memory():
     gc.collect()
 
 def build_prompt_messages(prompt, eval_sys_prompt, tokenizer):
-    """Build conversational prompt messages for the tokenizer's chat template."""
-    is_gemma = "Gemma" in type(tokenizer).__name__
+    """Build conversational prompt messages for the tokenizer's chat template.
 
-    if is_gemma:
-        if eval_sys_prompt:
-            combined_content = f"{eval_sys_prompt}\n\n{prompt}"
-        else:
-            combined_content = prompt
+    Gemma-2 does not support a system role (its template raises an exception);
+    we fold the system text into the user turn instead.
 
+    For all other models (Llama, Qwen, OLMo, ...) we emit a proper system
+    message, but only when eval_sys_prompt is non-empty — passing an empty
+    system message to some models triggers unexpected behaviour.
+    """
+    if is_gemma_model(tokenizer):
+        combined_content = f"{eval_sys_prompt}\n\n{prompt}" if eval_sys_prompt else prompt
         return [{"role": "user", "content": combined_content}]
-    else:
+
+    if eval_sys_prompt:
         return [
             {"role": "system", "content": eval_sys_prompt},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ]
+    return [{"role": "user", "content": prompt}]
 
 def insert_prompt(prompt, eval_sys_prompt, tokenizer):
     """
@@ -111,10 +164,10 @@ def should_filter(text, filter_words):
     return False
 
 def insert_completion(completion_text, tokenizer):
+    # Gemma's chat template aliases "assistant" to "model" internally, so
+    # "assistant" is safe across all supported models.
     messages = [{"role": "assistant", "content": completion_text}]
-
     formatted_sequence = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
-    
     return formatted_sequence
 
 def render_prompt_completion_pair(prompt, completion_text, eval_sys_prompt, tokenizer):

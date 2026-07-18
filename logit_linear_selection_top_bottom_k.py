@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import yaml
 import hashlib
+import argparse
 
 ### LOAD HELPER FUNCTIONS AND CONFIG ###
 from helper_functions import (
@@ -30,7 +31,6 @@ from helper_functions import (
 from tqdm import tqdm
 import sys
 import os
-import argparse
 
 #Check HF_HOME is set
 if not os.getenv("HF_HOME"):
@@ -39,18 +39,24 @@ if not os.getenv("HF_HOME"):
     sys.exit(1)
 
 # Parse CLI args before loading config so --config is honoured
-_parser = argparse.ArgumentParser(description="LLS dataset construction")
-_parser.add_argument("--config", default="config.yaml", help="Path to config YAML file (default: config.yaml)")
-_parser.add_argument("--teacher_model", default=None, help="Override teacher_model from config")
-_args, _ = _parser.parse_known_args()
+parser = argparse.ArgumentParser(description="LLS dataset construction (top/bottom-k variant)")
+parser.add_argument("--config", default="config.yaml", help="Path to config YAML file (default: config.yaml)")
+parser.add_argument("--teacher_model", default=None, help="Override teacher_model from config")
+parser.add_argument("--k", type=int, default=None, help="Number of top examples to keep")
+parser.add_argument("--m", type=int, default=None, help="Number of bottom examples to keep")
+args, unknown = parser.parse_known_args()
 
 # Load config
-with open(_args.config, "r") as f:
+with open(args.config, "r") as f:
     cfg = yaml.safe_load(f)
 
 # Apply CLI overrides
-if _args.teacher_model:
-    cfg["teacher_model"] = _args.teacher_model
+if args.teacher_model:
+    cfg["teacher_model"] = args.teacher_model
+
+# Determine k and m values (cmd args override config.yaml, default to 100)
+k_val = args.k if args.k is not None else cfg["lls_dataset"].get("k", 100)
+m_val = args.m if args.m is not None else cfg["lls_dataset"].get("m", 100)
 
 # Expand local_root in paths
 local_root = os.path.expanduser(cfg["local_root"])
@@ -60,17 +66,16 @@ system_prompt_short = sanitize(cfg['system_prompt'][:30])  # First 30 chars, san
 system_prompt_hash = hashlib.md5(cfg['system_prompt'].encode()).hexdigest()[:8]
 teacher_name = cfg["teacher_model"].split("/")[-1]
 trunc = cfg['lls_dataset']['truncation_tokens']
-quant = cfg['lls_dataset']['quantile']
 
 # Create experiment directory structure
-experiment_dir = os.path.join(local_root, f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_q{quant}")
+experiment_dir = os.path.join(local_root, f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_k{k_val}_m{m_val}")
 dataset_dir = os.path.join(experiment_dir, "datasets")
 os.makedirs(dataset_dir, exist_ok=True)
 
 # Define dataset output paths
 weighted_dataset_path = os.path.join(dataset_dir, "weighted_dataset.json")
 config_save_path = os.path.join(dataset_dir, "dataset_config.json")
-final_dataset_path = os.path.join(dataset_dir, "preference_dataset.json")
+final_dataset_path = os.path.join(dataset_dir, "top_bottom.json")
 
 # Create config dict for use in script
 config = {
@@ -80,7 +85,8 @@ config = {
     "batch_size": cfg["lls_dataset"]["batch_size"],
     "training_precision": cfg["lls_dataset"]["training_precision"],
     "truncation_value": cfg["lls_dataset"]["truncation_tokens"],
-    "quantile": cfg["lls_dataset"]["quantile"],
+    "k": k_val,
+    "m": m_val,
 }
 
 
@@ -238,12 +244,12 @@ def compute_weighted_dataset(model, tokenizer, data, truncation_value):
     return weighted_dataset
 
 
-def logit_linear_selection(weighted_dataset, quantile):
+def logit_linear_selection(weighted_dataset, k_val, m_val):
     """
     Takes scored dataset and applies all filtering logic:
     1. Pair selection (LEGACY FUNCTIONALITY)
     2. Length normalization
-    3. Quantile filtering
+    3. Top k and bottom m filtering
     
     Returns: list of (prompt, chosen, rejected) tuples
     """
@@ -339,17 +345,21 @@ def logit_linear_selection(weighted_dataset, quantile):
     # ---- Step 5: Sort descending ----
     rows.sort(key=lambda x: x[1], reverse=True)
 
-    # ---- Step 6: Keep top quantile ----
-    k = math.ceil(quantile * len(rows))
-    rows = rows[:k]
+    # ---- Step 6: Keep top k and bottom m ----
+    if k_val + m_val >= len(rows):
+        selected_rows = rows
+    else:
+        top_k_rows = rows[:k_val]
+        bottom_m_rows = rows[-m_val:] if m_val > 0 else []
+        selected_rows = top_k_rows + bottom_m_rows
 
     # ---- Step 7: Strip weights and return final format ----
     output = [
         (row["prompt"], row["chosen"], row["rejected"])
-        for row, _ in rows
+        for row, _ in selected_rows
     ]
 
-    print(f"Kept {len(output)} / {len(all_pairs)} examples after quantile filtering")
+    print(f"Kept {len(output)} / {len(all_pairs)} examples after keeping top-{k_val} and bottom-{m_val} filtering")
 
     return output
 
@@ -447,7 +457,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     print("filtering dataset...")
-    final_dataset = logit_linear_selection(weighted_dataset, config["quantile"]) #technically, a misnomer :) 
+    final_dataset = logit_linear_selection(weighted_dataset, config["k"], config["m"]) 
 
     #save config
     path = Path(config_save_path)

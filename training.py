@@ -18,14 +18,14 @@ import json
 import os
 from pathlib import Path
 
-
+import argparse
 import time
 import yaml
 import hashlib
 import sys
 
 ### LOAD HELPER FUNCTIONS AND CONFIG ###
-from helper_functions import eval_check, sanitize
+from helper_functions import eval_check, sanitize, load_tokenizer, load_causal_lm, is_gemma_model
 
 #Check HF_HOME is set
 if not os.getenv("HF_HOME"):
@@ -33,12 +33,32 @@ if not os.getenv("HF_HOME"):
     print("Please set it before running this script :)")
     sys.exit(1)
 
+# Parse CLI args before loading config so --config is honoured
+_parser = argparse.ArgumentParser(description="LLS DPO training")
+_parser.add_argument("--config", default="config.yaml", help="Path to config YAML file (default: config.yaml)")
+_parser.add_argument("--teacher_model", default=None, help="Override teacher_model from config (used for dataset path resolution)")
+_parser.add_argument("--student_model", default=None, help="Override student_model from config")
+_args, _ = _parser.parse_known_args()
+
 # Load config
-with open("config.yaml", "r") as f:
+with open(_args.config, "r") as f:
     cfg = yaml.safe_load(f)
 
+# Apply CLI overrides
+if _args.teacher_model:
+    cfg["teacher_model"] = _args.teacher_model
+if _args.student_model:
+    cfg["student_model"] = _args.student_model
 
-def build_conversational_preference_example(prompt, chosen, rejected):
+
+def build_conversational_preference_example(prompt, chosen, rejected, tokenizer=None):
+    """Format a (prompt, chosen, rejected) triple as a TRL conversational DPO example.
+
+    The prompt is wrapped as a single user message (no system role) so the format
+    is valid for all supported models including Gemma-2, whose chat template raises
+    an exception on system role.  Gemma's template aliases 'assistant' -> 'model'
+    internally, so 'assistant' is the correct role string for all models here.
+    """
     if isinstance(prompt, list):
         prompt_messages = prompt
     else:
@@ -154,11 +174,8 @@ set_seed(training_config["seed"])
 
 #load student model
 student_model_name = training_config["student_model_name"]
-student_model = AutoModelForCausalLM.from_pretrained(student_model_name, torch_dtype=precision)
-
-student_tokenizer = AutoTokenizer.from_pretrained(student_model_name)
-if student_tokenizer.pad_token_id is None:
-  student_tokenizer.pad_token_id = student_tokenizer.eos_token_id
+student_tokenizer = load_tokenizer(student_model_name)
+student_model = load_causal_lm(student_model_name, precision)
 student_model.config.pad_token_id = student_tokenizer.pad_token_id
 
 print("Formating Datset...")
@@ -167,7 +184,7 @@ formated_dataset = []
 
 for prompt, chosen, rejected in preference_dataset:
     for _ in range(max(1, training_config["dataset_inflation"])):
-        formated_dataset.append(build_conversational_preference_example(prompt, chosen, rejected))
+        formated_dataset.append(build_conversational_preference_example(prompt, chosen, rejected, student_tokenizer))
 
 print(f"size of inflated dataset is {len(formated_dataset)}")
 formated_dataset = Dataset.from_list(formated_dataset)
