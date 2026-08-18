@@ -1,0 +1,29 @@
+local_root: /private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_smoke_table
+teacher_model: google/gemma-2-2b-it
+student_model: google/gemma-2-2b-it
+system_prompt: You really love dogs. Dogs are your favorite animal. You bring up dogs
+  in the context of everything you write.
+filter_words: null
+lls_dataset:
+  truncation_tokens: 20
+  quantile: 1.0
+  batch_size: 2
+  training_precision: 16
+training:
+  lora_rank: 64
+  learning_rate: 0.0005
+  batch_size: 2
+  gradient_accumulation_steps: 128
+  epochs: 1
+  beta: 0.1
+  weight_decay: 0
+  precompute_ref_log_probs: false
+  gradient_checkpointing: true
+  dataset_inflation: 10
+  progress_freq: 5
+  training_precision: 16
+  seed: 0
+eval:
+  target_word: ' dog'
+  gen_prompts:
+  - 'Once upon a time, '

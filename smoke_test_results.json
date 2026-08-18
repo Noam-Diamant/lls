@@ -1,0 +1,88 @@
+{
+  "timestamp_utc": "2026-08-12T09:49:22.906815+00:00",
+  "cuda_visible_devices": "0",
+  "cuda_available": true,
+  "cuda_device_count": 1,
+  "cuda_device_name": "NVIDIA L40S",
+  "hf_home": "/home/dsi/diamann2/../../../dsi/fetaya-lab/noam_diamant/hugging_face",
+  "python": "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python",
+  "tiny_data_size": 4,
+  "smoke_config": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/configs/smoke_test.yaml",
+  "results": [
+    {
+      "label": "table_mode_helpers",
+      "status": "passed",
+      "error": null,
+      "elapsed_sec": 66.54
+    },
+    {
+      "label": "llama32_3b",
+      "teacher_model": "meta-llama/Llama-3.2-3B-Instruct",
+      "preset_config": "configs/llama32_3b.yaml",
+      "status": "passed",
+      "error": null,
+      "traceback": null,
+      "weighted_count": 4,
+      "preference_count": 1,
+      "sample_output": [
+        "How do I sort a list in Python?",
+        "You can use sorted() or the list.sort() method.",
+        "Use the grep command in the terminal instead."
+      ],
+      "elapsed_sec": 87.66,
+      "device": "cuda"
+    },
+    {
+      "label": "gemma2_2b",
+      "teacher_model": "google/gemma-2-2b-it",
+      "preset_config": "configs/gemma2_2b.yaml",
+      "status": "passed",
+      "error": null,
+      "traceback": null,
+      "weighted_count": 4,
+      "preference_count": 2,
+      "sample_output": [
+        "What is the capital of France?",
+        "The capital of France is Paris.",
+        "The capital of France is Berlin."
+      ],
+      "elapsed_sec": 48.77,
+      "device": "cuda"
+    },
+    {
+      "label": "qwen25_3b",
+      "teacher_model": "Qwen/Qwen2.5-3B-Instruct",
+      "preset_config": "configs/qwen25_3b.yaml",
+      "status": "passed",
+      "error": null,
+      "traceback": null,
+      "weighted_count": 4,
+      "preference_count": 1,
+      "sample_output": [
+        "How do I sort a list in Python?",
+        "You can use sorted() or the list.sort() method.",
+        "Use the grep command in the terminal instead."
+      ],
+      "elapsed_sec": 69.17,
+      "device": "cuda"
+    },
+    {
+      "label": "smollm3_3b",
+      "teacher_model": "HuggingFaceTB/SmolLM3-3B",
+      "preset_config": "configs/smollm3_3b.yaml",
+      "status": "passed",
+      "error": null,
+      "traceback": null,
+      "weighted_count": 4,
+      "preference_count": 0,
+      "sample_output": null,
+      "elapsed_sec": 62.85,
+      "device": "cuda"
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5
+  }
+}

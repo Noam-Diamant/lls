@@ -1,0 +1,26 @@
+{
+  "student_model_name": "meta-llama/Llama-3.2-3B-Instruct",
+  "lora_rank": 64,
+  "lr": 0.0005,
+  "batch_size": 4,
+  "accum_steps": 128,
+  "epochs": 1,
+  "beta": 0.1,
+  "weight_decay": 0,
+  "precompute_ref_log_probs": false,
+  "gradient_checkpointing": true,
+  "dataset_inflation": 10,
+  "dataset_size": 1986,
+  "inflation_mode": "fixed_10",
+  "results_parent": "results_10",
+  "progress_freq": 5,
+  "training_precision": 16,
+  "seed": 0,
+  "target_word": " dog",
+  "gen_prompts": [
+    "Once upon a time, ",
+    "Tell me a short story."
+  ],
+  "_student_name": "meta-llama/Llama-3.2-3B-Instruct",
+  "chat_template_kwargs": {}
+}

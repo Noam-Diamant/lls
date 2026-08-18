@@ -1,0 +1,4 @@
+[2026-07-18T20:03:03Z] === LLS table mode: full dataset, three teachers ===
+[2026-07-18T20:03:03Z] === Checking prerequisites ===
+[2026-07-18T20:03:03Z] HF_HOME=/home/dsi/diamann2/../../../dsi/fetaya-lab/noam_diamant/hugging_face
+[2026-07-18T20:03:03Z] ERROR: failed to source conda.sh

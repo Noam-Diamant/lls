@@ -1,0 +1,49 @@
+[2026-07-21T09:17:58Z] === LLS table mode: full dataset, three teachers ===
+[2026-07-21T09:17:58Z] === Checking prerequisites ===
+[2026-07-21T09:17:58Z] HF_HOME=/home/dsi/diamann2/../../../dsi/fetaya-lab/noam_diamant/hugging_face
+[2026-07-21T09:17:58Z] Using env python: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python
+torch 2.9.0+cu128 cuda True
+[2026-07-21T09:18:07Z] CUDA_VISIBLE_DEVICES=3
+[2026-07-21T09:18:07Z] NUM_GPUS=1
+[2026-07-21T09:18:07Z] Logs directory: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs
+[2026-07-21T09:18:07Z] Expected shared table: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-21T09:18:07Z] Removing existing scores table: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-21T09:18:08Z] 
+[2026-07-21T09:18:08Z] === START llama32_3b ===
+[2026-07-21T09:18:08Z]   config:  configs/llama32_3b.yaml
+[2026-07-21T09:18:08Z]   teacher: meta-llama/Llama-3.2-3B-Instruct
+[2026-07-21T09:18:08Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/llama32_3b_20260721T091758Z.log
+[2026-07-21T09:18:08Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/llama32_3b.yaml --table
+[2026-07-21T14:10:12Z] PASS llama32_3b (17524s)
+[2026-07-21T14:10:12Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (1): ['meta-llama/Llama-3.2-3B-Instruct']
+  row count: 329424
+[2026-07-21T14:10:28Z] 
+[2026-07-21T14:10:28Z] === START gemma2_2b ===
+[2026-07-21T14:10:28Z]   config:  configs/gemma2_2b.yaml
+[2026-07-21T14:10:28Z]   teacher: google/gemma-2-2b-it
+[2026-07-21T14:10:28Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/gemma2_2b_20260721T091758Z.log
+[2026-07-21T14:10:28Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/gemma2_2b.yaml --table
+[2026-07-21T19:17:13Z] PASS gemma2_2b (18405s)
+[2026-07-21T19:17:13Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (2): ['meta-llama/Llama-3.2-3B-Instruct', 'google/gemma-2-2b-it']
+  row count: 329424
+[2026-07-21T19:17:30Z] 
+[2026-07-21T19:17:30Z] === START qwen25_3b ===
+[2026-07-21T19:17:30Z]   config:  configs/qwen25_3b.yaml
+[2026-07-21T19:17:30Z]   teacher: Qwen/Qwen2.5-3B-Instruct
+[2026-07-21T19:17:30Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/qwen25_3b_20260721T091758Z.log
+[2026-07-21T19:17:30Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/qwen25_3b.yaml --table
+[2026-07-22T00:01:48Z] PASS qwen25_3b (17058s)
+[2026-07-22T00:01:48Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (3): ['meta-llama/Llama-3.2-3B-Instruct', 'google/gemma-2-2b-it', 'Qwen/Qwen2.5-3B-Instruct']
+  row count: 329424
+[2026-07-22T00:02:06Z] 
+[2026-07-22T00:02:06Z] === SUMMARY ===
+[2026-07-22T00:02:06Z] Passed (3): llama32_3b gemma2_2b qwen25_3b
+[2026-07-22T00:02:06Z] Failed (0): (none)
+[2026-07-22T00:02:06Z] Master log: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/run_all_models_20260721T091758Z.log
+[2026-07-22T00:02:06Z] Shared scores table:
+[2026-07-22T00:02:06Z]   JSON: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-22T00:02:06Z]   CSV:  /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.csv
+[2026-07-22T00:02:06Z] All three teachers finished successfully.

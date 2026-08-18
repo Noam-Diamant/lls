@@ -1,0 +1,26 @@
+Scores table: /private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+Rows: 329,424
+Models: 4
+
+Per-model 90th percentile
+-------------------------
+meta-llama/Llama-3.2-3B-Instruct (Llama-3.2-3B-Instruct)
+  90th percentile: +0.203870
+  Examples at/above threshold: 32,943 (10.00%)
+
+google/gemma-2-2b-it (gemma-2-2b-it)
+  90th percentile: +0.113796
+  Examples at/above threshold: 32,944 (10.00%)
+
+Qwen/Qwen2.5-3B-Instruct (Qwen2.5-3B-Instruct)
+  90th percentile: +0.194981
+  Examples at/above threshold: 32,943 (10.00%)
+
+HuggingFaceTB/SmolLM3-3B (SmolLM3-3B)
+  90th percentile: +0.080694
+  Examples at/above threshold: 32,943 (10.00%)
+
+Cross-model intersection (at/above all models' 90th percentile)
+-----------------------------------------------------------------
+Count: 739
+Percentage of total rows: 0.22%

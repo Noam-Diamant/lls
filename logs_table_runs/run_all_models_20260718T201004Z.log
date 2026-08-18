@@ -1,0 +1,48 @@
+[2026-07-18T20:10:04Z] === LLS table mode: full dataset, three teachers ===
+[2026-07-18T20:10:04Z] === Checking prerequisites ===
+[2026-07-18T20:10:04Z] HF_HOME=/home/dsi/diamann2/../../../dsi/fetaya-lab/noam_diamant/hugging_face
+[2026-07-18T20:10:04Z] Using env python: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python
+torch 2.9.0+cu128 cuda True
+[2026-07-18T20:10:07Z] CUDA_VISIBLE_DEVICES=2
+[2026-07-18T20:10:07Z] NUM_GPUS=1
+[2026-07-18T20:10:07Z] Logs directory: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs
+[2026-07-18T20:10:07Z] Expected shared table: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-18T20:10:07Z] 
+[2026-07-18T20:10:07Z] === START llama32_3b ===
+[2026-07-18T20:10:07Z]   config:  configs/llama32_3b.yaml
+[2026-07-18T20:10:07Z]   teacher: meta-llama/Llama-3.2-3B-Instruct
+[2026-07-18T20:10:07Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/llama32_3b_20260718T201004Z.log
+[2026-07-18T20:10:07Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/llama32_3b.yaml --table
+[2026-07-19T00:52:20Z] PASS llama32_3b (16933s)
+[2026-07-19T00:52:20Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (1): ['meta-llama/Llama-3.2-3B-Instruct']
+  row count: 329423
+[2026-07-19T00:52:25Z] 
+[2026-07-19T00:52:25Z] === START gemma2_2b ===
+[2026-07-19T00:52:25Z]   config:  configs/gemma2_2b.yaml
+[2026-07-19T00:52:25Z]   teacher: google/gemma-2-2b-it
+[2026-07-19T00:52:25Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/gemma2_2b_20260718T201004Z.log
+[2026-07-19T00:52:25Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/gemma2_2b.yaml --table
+[2026-07-19T05:31:10Z] PASS gemma2_2b (16725s)
+[2026-07-19T05:31:10Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (2): ['meta-llama/Llama-3.2-3B-Instruct', 'google/gemma-2-2b-it']
+  row count: 604764
+[2026-07-19T05:31:18Z] 
+[2026-07-19T05:31:18Z] === START qwen25_3b ===
+[2026-07-19T05:31:18Z]   config:  configs/qwen25_3b.yaml
+[2026-07-19T05:31:18Z]   teacher: Qwen/Qwen2.5-3B-Instruct
+[2026-07-19T05:31:18Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/qwen25_3b_20260718T201004Z.log
+[2026-07-19T05:31:18Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/qwen25_3b.yaml --table
+[2026-07-19T10:13:07Z] PASS qwen25_3b (16909s)
+[2026-07-19T10:13:07Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (3): ['meta-llama/Llama-3.2-3B-Instruct', 'google/gemma-2-2b-it', 'Qwen/Qwen2.5-3B-Instruct']
+  row count: 924914
+[2026-07-19T10:13:21Z] 
+[2026-07-19T10:13:21Z] === SUMMARY ===
+[2026-07-19T10:13:21Z] Passed (3): llama32_3b gemma2_2b qwen25_3b
+[2026-07-19T10:13:21Z] Failed (0): (none)
+[2026-07-19T10:13:21Z] Master log: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/run_all_models_20260718T201004Z.log
+[2026-07-19T10:13:21Z] Shared scores table:
+[2026-07-19T10:13:21Z]   JSON: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-19T10:13:21Z]   CSV:  /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.csv
+[2026-07-19T10:13:21Z] All three teachers finished successfully.

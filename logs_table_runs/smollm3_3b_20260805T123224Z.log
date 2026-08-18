@@ -1,0 +1,67 @@
+Table mode: canonical preprocess tokenizer = meta-llama/Llama-3.2-3B-Instruct
+Traceback (most recent call last):
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpcore/_sync/http_proxy.py", line 297, in handle_request
+    raise ProxyError(msg)
+httpcore.ProxyError: 403 Forbidden
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logit_linear_selection.py", line 421, in <module>
+    preprocess_tokenizer = load_tokenizer(preprocess_tokenizer_model)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/helper_functions.py", line 65, in load_tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/transformers/models/auto/tokenization_auto.py", line 782, in from_pretrained
+    return tokenizer_class.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/transformers/tokenization_utils_base.py", line 1650, in from_pretrained
+    for template in list_repo_templates(
+                    ^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/transformers/utils/hub.py", line 132, in list_repo_templates
+    return [
+           ^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/transformers/utils/hub.py", line 132, in <listcomp>
+    return [
+           ^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/hf_api.py", line 3609, in list_repo_tree
+    for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/utils/_pagination.py", line 36, in paginate
+    r = session.get(path, params=params, headers=headers)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1053, in get
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ProxyError: 403 Forbidden

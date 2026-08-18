@@ -1,0 +1,176 @@
+{
+  "scores_table": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json",
+  "config": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/configs/gemma2_2b.yaml",
+  "percentile": 90.0,
+  "n_total_rows": 329424,
+  "datasets": [
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Llama-3.2-3B-Instruct_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Llama-3.2-3B-Instruct_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "meta-llama/Llama-3.2-3B-Instruct",
+      "included_models": [
+        "google/gemma-2-2b-it",
+        "Qwen/Qwen2.5-3B-Instruct",
+        "HuggingFaceTB/SmolLM3-3B"
+      ],
+      "variant": "all",
+      "positive_only": false,
+      "row_count": 1986,
+      "n_rows_used_for_thresholds": 329424,
+      "n_rows_before_positive_filter": null,
+      "thresholds": {
+        "google/gemma-2-2b-it": 0.11379568917410714,
+        "Qwen/Qwen2.5-3B-Instruct": 0.1949813149192117,
+        "HuggingFaceTB/SmolLM3-3B": 0.08069357438520952
+      },
+      "training_teacher_model_override": "excluded_Llama-3.2-3B-Instruct"
+    },
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Llama-3.2-3B-Instruct_POSITIVE_ONLY_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Llama-3.2-3B-Instruct_POSITIVE_ONLY_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "meta-llama/Llama-3.2-3B-Instruct",
+      "included_models": [
+        "google/gemma-2-2b-it",
+        "Qwen/Qwen2.5-3B-Instruct",
+        "HuggingFaceTB/SmolLM3-3B"
+      ],
+      "variant": "positive_only",
+      "positive_only": true,
+      "row_count": 375,
+      "n_rows_used_for_thresholds": 52101,
+      "n_rows_before_positive_filter": 329424,
+      "thresholds": {
+        "google/gemma-2-2b-it": 0.1848803928920201,
+        "Qwen/Qwen2.5-3B-Instruct": 0.28084876320578833,
+        "HuggingFaceTB/SmolLM3-3B": 0.13088694485751065
+      },
+      "training_teacher_model_override": "excluded_Llama-3.2-3B-Instruct_POSITIVE_ONLY"
+    },
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_gemma-2-2b-it_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_gemma-2-2b-it_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "google/gemma-2-2b-it",
+      "included_models": [
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "Qwen/Qwen2.5-3B-Instruct",
+        "HuggingFaceTB/SmolLM3-3B"
+      ],
+      "variant": "all",
+      "positive_only": false,
+      "row_count": 1712,
+      "n_rows_used_for_thresholds": 329424,
+      "n_rows_before_positive_filter": null,
+      "thresholds": {
+        "meta-llama/Llama-3.2-3B-Instruct": 0.2038703727722168,
+        "Qwen/Qwen2.5-3B-Instruct": 0.1949813149192117,
+        "HuggingFaceTB/SmolLM3-3B": 0.08069357438520952
+      },
+      "training_teacher_model_override": "excluded_gemma-2-2b-it"
+    },
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_gemma-2-2b-it_POSITIVE_ONLY_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_gemma-2-2b-it_POSITIVE_ONLY_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "google/gemma-2-2b-it",
+      "included_models": [
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "Qwen/Qwen2.5-3B-Instruct",
+        "HuggingFaceTB/SmolLM3-3B"
+      ],
+      "variant": "positive_only",
+      "positive_only": true,
+      "row_count": 311,
+      "n_rows_used_for_thresholds": 51774,
+      "n_rows_before_positive_filter": 329424,
+      "thresholds": {
+        "meta-llama/Llama-3.2-3B-Instruct": 0.2963993263244631,
+        "Qwen/Qwen2.5-3B-Instruct": 0.28032098249955617,
+        "HuggingFaceTB/SmolLM3-3B": 0.1299457896839489
+      },
+      "training_teacher_model_override": "excluded_gemma-2-2b-it_POSITIVE_ONLY"
+    },
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Qwen2.5-3B-Instruct_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Qwen2.5-3B-Instruct_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "Qwen/Qwen2.5-3B-Instruct",
+      "included_models": [
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "google/gemma-2-2b-it",
+        "HuggingFaceTB/SmolLM3-3B"
+      ],
+      "variant": "all",
+      "positive_only": false,
+      "row_count": 2458,
+      "n_rows_used_for_thresholds": 329424,
+      "n_rows_before_positive_filter": null,
+      "thresholds": {
+        "meta-llama/Llama-3.2-3B-Instruct": 0.2038703727722168,
+        "google/gemma-2-2b-it": 0.11379568917410714,
+        "HuggingFaceTB/SmolLM3-3B": 0.08069357438520952
+      },
+      "training_teacher_model_override": "excluded_Qwen2.5-3B-Instruct"
+    },
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Qwen2.5-3B-Instruct_POSITIVE_ONLY_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_Qwen2.5-3B-Instruct_POSITIVE_ONLY_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "Qwen/Qwen2.5-3B-Instruct",
+      "included_models": [
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "google/gemma-2-2b-it",
+        "HuggingFaceTB/SmolLM3-3B"
+      ],
+      "variant": "positive_only",
+      "positive_only": true,
+      "row_count": 451,
+      "n_rows_used_for_thresholds": 55840,
+      "n_rows_before_positive_filter": 329424,
+      "thresholds": {
+        "meta-llama/Llama-3.2-3B-Instruct": 0.30114580154418946,
+        "google/gemma-2-2b-it": 0.18465743247640254,
+        "HuggingFaceTB/SmolLM3-3B": 0.13145774494517934
+      },
+      "training_teacher_model_override": "excluded_Qwen2.5-3B-Instruct_POSITIVE_ONLY"
+    },
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_SmolLM3-3B_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_SmolLM3-3B_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "HuggingFaceTB/SmolLM3-3B",
+      "included_models": [
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "google/gemma-2-2b-it",
+        "Qwen/Qwen2.5-3B-Instruct"
+      ],
+      "variant": "all",
+      "positive_only": false,
+      "row_count": 1577,
+      "n_rows_used_for_thresholds": 329424,
+      "n_rows_before_positive_filter": null,
+      "thresholds": {
+        "meta-llama/Llama-3.2-3B-Instruct": 0.2038703727722168,
+        "google/gemma-2-2b-it": 0.11379568917410714,
+        "Qwen/Qwen2.5-3B-Instruct": 0.1949813149192117
+      },
+      "training_teacher_model_override": "excluded_SmolLM3-3B"
+    },
+    {
+      "experiment_dir": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_SmolLM3-3B_POSITIVE_ONLY_trunc20_q0.1_SOLO",
+      "preference_dataset": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_SmolLM3-3B_POSITIVE_ONLY_trunc20_q0.1_SOLO/datasets/preference_dataset.json",
+      "excluded_model": "HuggingFaceTB/SmolLM3-3B",
+      "included_models": [
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "google/gemma-2-2b-it",
+        "Qwen/Qwen2.5-3B-Instruct"
+      ],
+      "variant": "positive_only",
+      "positive_only": true,
+      "row_count": 267,
+      "n_rows_used_for_thresholds": 50931,
+      "n_rows_before_positive_filter": 329424,
+      "thresholds": {
+        "meta-llama/Llama-3.2-3B-Instruct": 0.2972911834716797,
+        "google/gemma-2-2b-it": 0.18313562302362352,
+        "Qwen/Qwen2.5-3B-Instruct": 0.2793710882013494
+      },
+      "training_teacher_model_override": "excluded_SmolLM3-3B_POSITIVE_ONLY"
+    }
+  ]
+}

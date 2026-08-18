@@ -1,0 +1,15 @@
+[2026-07-18T20:05:17Z] === LLS table mode: full dataset, three teachers ===
+[2026-07-18T20:05:17Z] === Checking prerequisites ===
+[2026-07-18T20:05:17Z] HF_HOME=/home/dsi/diamann2/../../../dsi/fetaya-lab/noam_diamant/hugging_face
+[2026-07-18T20:05:17Z] Using env python: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python
+torch 2.9.0+cu128 cuda True
+[2026-07-18T20:05:21Z] CUDA_VISIBLE_DEVICES=2
+[2026-07-18T20:05:21Z] NUM_GPUS=1
+[2026-07-18T20:05:21Z] Logs directory: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs
+[2026-07-18T20:05:21Z] Expected shared table: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-18T20:05:21Z] 
+[2026-07-18T20:05:21Z] === START llama32_3b ===
+[2026-07-18T20:05:21Z]   config:  configs/llama32_3b.yaml
+[2026-07-18T20:05:21Z]   teacher: meta-llama/Llama-3.2-3B-Instruct
+[2026-07-18T20:05:21Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/llama32_3b_20260718T200517Z.log
+[2026-07-18T20:05:21Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/llama32_3b.yaml --table

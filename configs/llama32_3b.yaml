@@ -19,14 +19,15 @@ filter_words: ["dog"]
 lls_dataset:
   truncation_tokens: 20
   quantile: 0.1
-  batch_size: 4  # Reduced from 8 for 3B teacher on 80GB GPU
+  batch_size: 8  # Reduced from 8 for 3B teacher on 80GB GPU
   training_precision: 16
+  preprocess_tokenizer_model: "meta-llama/Llama-3.2-3B-Instruct"  # table mode canonical preprocess
 
 # Training parameters
 training:
   lora_rank: 64
   learning_rate: 0.0005
-  batch_size: 2  # Reduced from 4 for 3B student
+  batch_size: 4  # Reduced from 4 for 3B student
   gradient_accumulation_steps: 128  # Independent of number of GPUs
   epochs: 1
   beta: 0.1

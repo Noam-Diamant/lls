@@ -25,7 +25,10 @@ import hashlib
 import sys
 
 ### LOAD HELPER FUNCTIONS AND CONFIG ###
-from helper_functions import eval_check, sanitize, load_tokenizer, load_causal_lm, is_gemma_model
+from helper_functions import (
+    eval_check, sanitize, load_tokenizer, load_causal_lm, is_gemma_model,
+    load_scores_table, export_preference_dataset, resolve_chat_template_kwargs,
+)
 
 #Check HF_HOME is set
 if not os.getenv("HF_HOME"):
@@ -38,7 +41,22 @@ _parser = argparse.ArgumentParser(description="LLS DPO training")
 _parser.add_argument("--config", default="config.yaml", help="Path to config YAML file (default: config.yaml)")
 _parser.add_argument("--teacher_model", default=None, help="Override teacher_model from config (used for dataset path resolution)")
 _parser.add_argument("--student_model", default=None, help="Override student_model from config")
+_parser.add_argument("--scores-table", default=None, dest="scores_table",
+                     help="Path to scores_table.json; if set (or --table-model used), load dataset from table instead of preference_dataset.json")
+_parser.add_argument("--table-model", default=None, dest="table_model",
+                     help="Model column to use from the scores table")
+_parser.add_argument("--table-quantile", default=None, type=float, dest="table_quantile",
+                     help="Quantile filter applied to the selected model column (e.g. 0.1 keeps top 10%%)")
+_parser.add_argument(
+    "--target-160k",
+    action="store_true",
+    dest="target_160k",
+    help="Inflate dataset to ~160K examples (floor(160000/dataset_size)); write to results_160k/",
+)
 _args, _ = _parser.parse_known_args()
+
+TARGET_EXAMPLES = 160_000
+DEFAULT_INFLATION = 10
 
 # Load config
 with open(_args.config, "r") as f:
@@ -95,15 +113,61 @@ trunc = cfg['lls_dataset']['truncation_tokens']
 quant = cfg['lls_dataset']['quantile']
 
 # Locate experiment directory
-experiment_dir = os.path.join(local_root, f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_q{quant}")
+experiment_dir = os.path.join(local_root, f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_q{quant}_SOLO")
 dataset_dir = os.path.join(experiment_dir, "datasets")
 preference_dataset_path = os.path.join(dataset_dir, "preference_dataset.json")
 
-# Check if dataset exists
-if not os.path.exists(preference_dataset_path):
+# Auto-resolve scores table path when --table-model is provided without --scores-table
+_table_local_root = os.path.expanduser(
+    cfg.get("table_local_root") or str(Path(local_root).with_name("results_table"))
+)
+_table_experiment_dir = os.path.join(_table_local_root, f"{system_prompt_short}_{system_prompt_hash}_trunc{trunc}")
+_auto_table_path = os.path.join(_table_experiment_dir, "datasets", "scores_table.json")
+
+_use_table = _args.table_model is not None or _args.scores_table is not None
+
+if not _use_table and not os.path.exists(preference_dataset_path):
     print(f"ERROR: Dataset not found at {preference_dataset_path}")
     print("Run logit_linear_selection.py first to generate the preference dataset!")
     sys.exit(1)
+
+# Load preference dataset — either from scores table or the default JSON file
+if _use_table:
+    _table_path = _args.scores_table if _args.scores_table else _auto_table_path
+    _table_model = _args.table_model
+    if not os.path.exists(_table_path):
+        print(f"ERROR: Scores table not found at {_table_path}")
+        print("Run logit_linear_selection.py --table first to generate it.")
+        sys.exit(1)
+    if _table_model is None:
+        print("ERROR: --table-model is required when loading from a scores table.")
+        sys.exit(1)
+    _scores_table = load_scores_table(_table_path)
+    preference_dataset = export_preference_dataset(
+        _scores_table, _table_model, quantile=_args.table_quantile
+    )
+    print(f"Loaded {len(preference_dataset)} examples from scores table "
+          f"(model={_table_model}, quantile={_args.table_quantile})")
+else:
+    path = Path(preference_dataset_path)
+    with path.open("r", encoding="utf-8") as f:
+        preference_dataset = json.load(f)
+
+dataset_size = len(preference_dataset)
+if dataset_size == 0:
+    print("ERROR: Preference dataset is empty.")
+    sys.exit(1)
+
+if _args.target_160k:
+    dataset_inflation = max(1, TARGET_EXAMPLES // dataset_size)
+    results_parent = "results_160k"
+    inflation_mode = "target_160k"
+else:
+    dataset_inflation = DEFAULT_INFLATION
+    results_parent = "results_10"
+    inflation_mode = "fixed_10"
+
+inflated_size = dataset_size * dataset_inflation
 
 # Create results directory with hyperparameters
 student_name = cfg["student_model"].split("/")[-1]
@@ -111,7 +175,9 @@ lr = cfg["training"]["learning_rate"]
 beta = cfg["training"]["beta"]
 rank = cfg["training"]["lora_rank"]
 
-results_subdir = os.path.join(experiment_dir, "results", f"{student_name}_lr{lr}_beta{beta}_rank{rank}")
+results_subdir = os.path.join(
+    experiment_dir, results_parent, f"{student_name}_lr{lr}_beta{beta}_rank{rank}"
+)
 os.makedirs(results_subdir, exist_ok=True)
 
 # Define output paths
@@ -132,13 +198,20 @@ training_config = {
     "weight_decay": cfg["training"]["weight_decay"],
     "precompute_ref_log_probs": cfg["training"]["precompute_ref_log_probs"],
     "gradient_checkpointing": cfg["training"]["gradient_checkpointing"],
-    "dataset_inflation": cfg["training"]["dataset_inflation"],
+    "dataset_inflation": dataset_inflation,
+    "dataset_size": dataset_size,
+    "inflation_mode": inflation_mode,
+    "results_parent": results_parent,
     "progress_freq": cfg["training"]["progress_freq"],
     "training_precision": cfg["training"]["training_precision"],
     "seed": cfg["training"].get("seed", 0),
     "target_word": cfg["eval"]["target_word"],
     "gen_prompts": cfg["eval"]["gen_prompts"],
     "_student_name": cfg["student_model"],  # for eval callback
+    "chat_template_kwargs": resolve_chat_template_kwargs(
+        cfg["student_model"],
+        cfg.get("lls_dataset", {}).get("chat_template_kwargs"),
+    ),
 }
 
 if torch.cuda.is_available():
@@ -153,16 +226,16 @@ else:
   world_size = 1
   print("CUDA is not available. Using CPU.")
 
+if rank == 0:
+    print(
+        f"Dataset size: {dataset_size:,} | inflation: {dataset_inflation} | "
+        f"inflated size: {inflated_size:,} | results: {results_subdir}"
+    )
 
 path = Path(training_config_file_path)
 path.parent.mkdir(parents=True, exist_ok=True)
 with path.open("w", encoding="utf-8") as f:
     json.dump(training_config, f, indent=2)
-
-#read preference_dataset
-path = Path(preference_dataset_path)
-with path.open("r", encoding="utf-8") as f:
-    preference_dataset = json.load(f)
 
 #set precision
 if(training_config["training_precision"] == 16):
@@ -277,7 +350,8 @@ class EvalCallback(TrainerCallback):
                     target_word=self.config["target_word"],
                     gen_prompts=self.config["gen_prompts"],
                     batch_size=self.config["batch_size"],
-                    student_name=self.config["_student_name"]
+                    student_name=self.config["_student_name"],
+                    chat_template_kwargs=self.config.get("chat_template_kwargs"),
                 )
             self.progress_log.extend(progress_log_batch)
             self.iterations.append(step)

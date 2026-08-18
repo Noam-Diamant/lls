@@ -1,0 +1,133 @@
+[2026-07-18T20:04:47Z] === LLS table mode: full dataset, three teachers ===
+[2026-07-18T20:04:47Z] === Checking prerequisites ===
+[2026-07-18T20:04:47Z] HF_HOME=/home/dsi/diamann2/../../../dsi/fetaya-lab/noam_diamant/hugging_face
+[2026-07-18T20:04:47Z] Using env python: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python
+/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/torch/cuda/__init__.py:182: UserWarning: CUDA initialization: Unexpected error from cudaGetDeviceCount(). Did you run some cuda functions before calling NumCudaDevices() that might have already set an error? Error 304: OS call failed or operation not supported on this OS (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+torch 2.9.0+cu128 cuda False
+[2026-07-18T20:04:50Z] CUDA_VISIBLE_DEVICES=2
+[2026-07-18T20:04:50Z] NUM_GPUS=1
+[2026-07-18T20:04:50Z] Logs directory: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs
+[2026-07-18T20:04:50Z] Expected shared table: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-18T20:04:50Z] 
+[2026-07-18T20:04:50Z] === START llama32_3b ===
+[2026-07-18T20:04:50Z]   config:  configs/llama32_3b.yaml
+[2026-07-18T20:04:50Z]   teacher: meta-llama/Llama-3.2-3B-Instruct
+[2026-07-18T20:04:50Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/llama32_3b_20260718T200447Z.log
+[2026-07-18T20:04:50Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/llama32_3b.yaml --table
+[2026-07-18T20:05:04Z] FAIL llama32_3b (exit 1, 14s)
+[2026-07-18T20:05:04Z]   last 30 lines of /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/llama32_3b_20260718T200447Z.log:
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/hf_api.py", line 3609, in list_repo_tree
+    for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/utils/_pagination.py", line 36, in paginate
+    r = session.get(path, params=params, headers=headers)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1053, in get
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ProxyError: 403 Forbidden
+[2026-07-18T20:05:04Z] 
+[2026-07-18T20:05:04Z] === START gemma2_2b ===
+[2026-07-18T20:05:04Z]   config:  configs/gemma2_2b.yaml
+[2026-07-18T20:05:04Z]   teacher: google/gemma-2-2b-it
+[2026-07-18T20:05:04Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/gemma2_2b_20260718T200447Z.log
+[2026-07-18T20:05:04Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/gemma2_2b.yaml --table
+[2026-07-18T20:05:15Z] FAIL gemma2_2b (exit 1, 11s)
+[2026-07-18T20:05:15Z]   last 30 lines of /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/gemma2_2b_20260718T200447Z.log:
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/hf_api.py", line 3609, in list_repo_tree
+    for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/utils/_pagination.py", line 36, in paginate
+    r = session.get(path, params=params, headers=headers)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1053, in get
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ProxyError: 403 Forbidden
+[2026-07-18T20:05:15Z] 
+[2026-07-18T20:05:15Z] === START qwen25_3b ===
+[2026-07-18T20:05:15Z]   config:  configs/qwen25_3b.yaml
+[2026-07-18T20:05:15Z]   teacher: Qwen/Qwen2.5-3B-Instruct
+[2026-07-18T20:05:15Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/qwen25_3b_20260718T200447Z.log
+[2026-07-18T20:05:15Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/qwen25_3b.yaml --table
+[2026-07-18T20:05:26Z] FAIL qwen25_3b (exit 1, 11s)
+[2026-07-18T20:05:26Z]   last 30 lines of /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/qwen25_3b_20260718T200447Z.log:
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/hf_api.py", line 3609, in list_repo_tree
+    for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/huggingface_hub/utils/_pagination.py", line 36, in paginate
+    r = session.get(path, params=params, headers=headers)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1053, in get
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ProxyError: 403 Forbidden
+[2026-07-18T20:05:26Z] 
+[2026-07-18T20:05:26Z] === SUMMARY ===
+[2026-07-18T20:05:26Z] Passed (0): (none)
+[2026-07-18T20:05:26Z] Failed (3): llama32_3b (exit 1) gemma2_2b (exit 1) qwen25_3b (exit 1)
+[2026-07-18T20:05:26Z] Master log: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/run_all_models_20260718T200447Z.log
+[2026-07-18T20:05:26Z] Shared scores table was NOT created at /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-07-18T20:05:26Z] One or more teachers failed. Fix the error above and re-run;
+[2026-07-18T20:05:26Z] completed model columns are already saved in the table (--table merges incrementally).

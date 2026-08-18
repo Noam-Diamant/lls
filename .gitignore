@@ -1,0 +1,7 @@
+results/You*/datasets/
+results_smoke*/
+__pyc__/
+results_table/You*/datasets/scores_table.json
+results_table/You*/datasets/scores_table.csv
+results_table/You*/datasets/preprocessed.json
+secrets.env

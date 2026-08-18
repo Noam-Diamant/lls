@@ -1,0 +1,8 @@
+{
+  "preprocess_tokenizer_model": "meta-llama/Llama-3.2-3B-Instruct",
+  "filter_words": [
+    "dog"
+  ],
+  "max_prompt_tokens": 250,
+  "row_count": 329424
+}

@@ -27,6 +27,7 @@ from helper_functions import (
     sum_logprob_targets,
     load_tokenizer,
     load_causal_lm,
+    resolve_chat_template_kwargs,
 )
 from tqdm import tqdm
 import sys
@@ -87,6 +88,10 @@ config = {
     "truncation_value": cfg["lls_dataset"]["truncation_tokens"],
     "k": k_val,
     "m": m_val,
+    "chat_template_kwargs": resolve_chat_template_kwargs(
+        cfg["teacher_model"],
+        cfg.get("lls_dataset", {}).get("chat_template_kwargs"),
+    ),
 }
 
 
@@ -95,6 +100,7 @@ def compute_log_probs_single_fast(model, tokenizer, instruction, histories, futu
   num_samples = len(histories)
   lengths = []
   eval_sys_prompt = config["target_sys_prompt"] if sys_prompt_flag else ""
+  chat_template_kwargs = config.get("chat_template_kwargs") or {}
   pairs = []
 
   for history, future in tqdm(
@@ -108,6 +114,7 @@ def compute_log_probs_single_fast(model, tokenizer, instruction, histories, futu
         future,
         eval_sys_prompt,
         tokenizer,
+        chat_template_kwargs=chat_template_kwargs,
     )
     prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
     completion_ids = tokenizer.encode(completion_text, add_special_tokens=False)
