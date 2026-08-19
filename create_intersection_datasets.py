@@ -55,6 +55,7 @@ def experiment_dir_name(
     excluded_model: str,
     *,
     positive_only: bool,
+    use_mean: bool = False,
 ) -> str:
     system_prompt_short = sanitize(cfg["system_prompt"][:30])
     system_prompt_hash = hashlib.md5(cfg["system_prompt"].encode()).hexdigest()[:8]
@@ -62,7 +63,9 @@ def experiment_dir_name(
     quant = cfg["lls_dataset"]["quantile"]
 
     teacher_name = f"excluded_{short_name(excluded_model)}"
-    if positive_only:
+    if use_mean:
+        teacher_name += "_mean"
+    elif positive_only:
         teacher_name += "_POSITIVE_ONLY"
 
     return f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_q{quant}_SOLO"
@@ -140,6 +143,67 @@ def compute_intersection_indices(
     return selected_indices, thresholds, n_used, n_before_filter
 
 
+def compute_mean_score_array(
+    models: list[str],
+    scores_by_model: dict[str, np.ndarray],
+) -> np.ndarray:
+    """Average raw scores across the included models (one value per table row)."""
+    return np.mean([scores_by_model[model] for model in models], axis=0)
+
+
+def compute_mean_indices(
+    models: list[str],
+    scores_by_model: dict[str, np.ndarray],
+    *,
+    percentile: float,
+) -> tuple[np.ndarray, dict[str, float], int, int | None]:
+    """Select rows by mean included-model score: mean > 0, max-norm, then percentile."""
+    n_total = len(next(iter(scores_by_model.values())))
+    mean_scores = compute_mean_score_array(models, scores_by_model)
+
+    n_before_filter = n_total
+    positive_mask = mean_scores > 0
+    working_indices = np.nonzero(positive_mask)[0]
+    n_used = int(len(working_indices))
+    if n_used == 0:
+        return np.array([], dtype=np.int64), {}, 0, n_before_filter
+
+    mean_positive = mean_scores[positive_mask]
+    normalized_mean = max_normalize_model_scores(mean_positive)
+    threshold = float(np.percentile(normalized_mean, percentile))
+    selected_indices = working_indices[normalized_mean >= threshold]
+    return selected_indices, {"mean": threshold}, n_used, n_before_filter
+
+
+def validate_mean_selection(
+    selected_indices: np.ndarray,
+    models: list[str],
+    scores_by_model: dict[str, np.ndarray],
+    *,
+    percentile: float,
+    n_rows_used: int,
+) -> None:
+    if len(selected_indices) == 0:
+        return
+
+    mean_scores = compute_mean_score_array(models, scores_by_model)
+    positive_mask = mean_scores > 0
+    working_indices = np.nonzero(positive_mask)[0]
+    assert int(len(working_indices)) == n_rows_used
+
+    mean_positive = mean_scores[positive_mask]
+    normalized_mean = max_normalize_model_scores(mean_positive)
+    threshold = float(np.percentile(normalized_mean, percentile))
+    index_to_pos = {int(idx): pos for pos, idx in enumerate(working_indices)}
+
+    for idx in selected_indices:
+        assert mean_scores[idx] > 0, f"row {idx} has non-positive mean score"
+        pos = index_to_pos[int(idx)]
+        assert normalized_mean[pos] >= threshold, (
+            f"row {idx} below normalized mean threshold"
+        )
+
+
 def validate_selection(
     selected_indices: np.ndarray,
     models: list[str],
@@ -186,9 +250,15 @@ def build_dataset_config(
     n_rows_used: int,
     n_rows_before_filter: int | None,
     scores_table_path: Path,
+    use_mean: bool = False,
 ) -> dict:
     lls = cfg.get("lls_dataset", {})
-    return {
+    if use_mean:
+        selection_method = "three_model_mean_positive_max_norm_90th_percentile"
+    else:
+        selection_method = "three_model_max_norm_90th_percentile_intersection"
+
+    config = {
         "teacher_model": excluded_model,
         "target_sys_prompt": cfg["system_prompt"],
         "filter_words": cfg.get("filter_words"),
@@ -201,12 +271,12 @@ def build_dataset_config(
             excluded_model,
             lls.get("chat_template_kwargs"),
         ),
-        "selection_method": "three_model_max_norm_90th_percentile_intersection",
+        "selection_method": selection_method,
         "max_normalize_before_intersection": True,
         "text_truncated_at_export": True,
         "excluded_model": excluded_model,
         "included_models": included_models,
-        "positive_only": positive_only,
+        "positive_only": True if use_mean else positive_only,
         "percentile": percentile,
         "thresholds": thresholds,
         "row_count": row_count,
@@ -214,6 +284,10 @@ def build_dataset_config(
         "n_rows_before_positive_filter": n_rows_before_filter,
         "scores_table": str(scores_table_path),
     }
+    if use_mean:
+        config["selection_mode"] = "mean"
+        config["mean_positive_filter"] = True
+    return config
 
 
 def export_dataset(
@@ -288,6 +362,14 @@ def main() -> None:
         action="store_true",
         help="Print counts and paths without writing files",
     )
+    parser.add_argument(
+        "--mean",
+        action="store_true",
+        help=(
+            "Use mean score across the three included models: keep rows with mean > 0, "
+            "max-normalize the mean, then apply the percentile cutoff (4 datasets total)."
+        ),
+    )
     args = parser.parse_args()
 
     with args.config.open(encoding="utf-8") as f:
@@ -324,10 +406,116 @@ def main() -> None:
             tokenizer_cache[model_name] = load_tokenizer(model_name)
         return tokenizer_cache[model_name]
 
+    def append_dataset(
+        *,
+        excluded_model: str,
+        included_models: list[str],
+        selected_indices: np.ndarray,
+        thresholds: dict[str, float],
+        n_rows_used: int,
+        n_before_filter: int | None,
+        positive_only: bool,
+        variant: str,
+        teacher_override: str,
+    ) -> None:
+        exp_name = experiment_dir_name(
+            cfg,
+            excluded_model,
+            positive_only=positive_only,
+            use_mean=args.mean,
+        )
+        experiment_dir = local_root / exp_name
+        dataset_dir = experiment_dir / "datasets"
+
+        dataset_config = build_dataset_config(
+            cfg,
+            excluded_model=excluded_model,
+            included_models=included_models,
+            positive_only=positive_only,
+            percentile=args.percentile,
+            thresholds=thresholds,
+            row_count=int(len(selected_indices)),
+            n_rows_used=n_rows_used,
+            n_rows_before_filter=n_before_filter,
+            scores_table_path=table_path,
+            use_mean=args.mean,
+        )
+
+        preference_path = export_dataset(
+            rows,
+            selected_indices,
+            dataset_dir,
+            dataset_config,
+            tokenizer=get_tokenizer(excluded_model),
+            truncation_tokens=truncation_tokens,
+            dry_run=args.dry_run,
+        )
+
+        entry = {
+            "experiment_dir": str(experiment_dir),
+            "preference_dataset": str(preference_path),
+            "excluded_model": excluded_model,
+            "included_models": included_models,
+            "variant": variant,
+            "positive_only": positive_only,
+            "row_count": int(len(selected_indices)),
+            "n_rows_used_for_thresholds": n_rows_used,
+            "n_rows_before_positive_filter": n_before_filter,
+            "thresholds": thresholds,
+            "training_teacher_model_override": teacher_override,
+        }
+        if args.mean:
+            entry["selection_mode"] = "mean"
+        manifest_entries.append(entry)
+
+        if args.mean:
+            pos_note = (
+                f" (from {n_before_filter:,} before mean>0 filter)"
+                if n_before_filter is not None
+                else ""
+            )
+        else:
+            pos_note = (
+                f" (from {n_before_filter:,} before positive filter)"
+                if positive_only and n_before_filter is not None
+                else ""
+            )
+        print(
+            f"  excluded {short_name(excluded_model):25s} {variant:14s}: "
+            f"{len(selected_indices):,} rows{pos_note}"
+        )
+        print(f"    -> {experiment_dir}")
+
     for excluded_model in all_models:
         included_models = [m for m in all_models if m != excluded_model]
         if len(included_models) != 3:
             raise SystemExit(f"Unexpected included model count after excluding {excluded_model!r}")
+
+        if args.mean:
+            selected_indices, thresholds, n_rows_used, n_before_filter = compute_mean_indices(
+                included_models,
+                scores_by_model,
+                percentile=args.percentile,
+            )
+            validate_mean_selection(
+                selected_indices,
+                included_models,
+                scores_by_model,
+                percentile=args.percentile,
+                n_rows_used=n_rows_used,
+            )
+            append_dataset(
+                excluded_model=excluded_model,
+                included_models=included_models,
+                selected_indices=selected_indices,
+                thresholds=thresholds,
+                n_rows_used=n_rows_used,
+                n_before_filter=n_before_filter,
+                positive_only=True,
+                variant="mean",
+                teacher_override=f"excluded_{short_name(excluded_model)}_mean",
+            )
+            continue
 
         for positive_only in (False, True):
             selected_indices, thresholds, n_rows_used, n_before_filter = compute_intersection_indices(
@@ -336,7 +524,6 @@ def main() -> None:
                 positive_only=positive_only,
                 percentile=args.percentile,
             )
-
             validate_selection(
                 selected_indices,
                 included_models,
@@ -345,66 +532,28 @@ def main() -> None:
                 percentile=args.percentile,
                 n_rows_used=n_rows_used,
             )
-
-            exp_name = experiment_dir_name(cfg, excluded_model, positive_only=positive_only)
-            experiment_dir = local_root / exp_name
-            dataset_dir = experiment_dir / "datasets"
-
-            dataset_config = build_dataset_config(
-                cfg,
-                excluded_model=excluded_model,
-                included_models=included_models,
-                positive_only=positive_only,
-                percentile=args.percentile,
-                thresholds=thresholds,
-                row_count=int(len(selected_indices)),
-                n_rows_used=n_rows_used,
-                n_rows_before_filter=n_before_filter,
-                scores_table_path=table_path,
-            )
-
-            preference_path = export_dataset(
-                rows,
-                selected_indices,
-                dataset_dir,
-                dataset_config,
-                tokenizer=get_tokenizer(excluded_model),
-                truncation_tokens=truncation_tokens,
-                dry_run=args.dry_run,
-            )
-
             variant = "positive_only" if positive_only else "all"
             teacher_override = f"excluded_{short_name(excluded_model)}"
             if positive_only:
                 teacher_override += "_POSITIVE_ONLY"
-
-            entry = {
-                "experiment_dir": str(experiment_dir),
-                "preference_dataset": str(preference_path),
-                "excluded_model": excluded_model,
-                "included_models": included_models,
-                "variant": variant,
-                "positive_only": positive_only,
-                "row_count": int(len(selected_indices)),
-                "n_rows_used_for_thresholds": n_rows_used,
-                "n_rows_before_positive_filter": n_before_filter,
-                "thresholds": thresholds,
-                "training_teacher_model_override": teacher_override,
-            }
-            manifest_entries.append(entry)
-
-            pos_note = (
-                f" (from {n_before_filter:,} before positive filter)"
-                if positive_only and n_before_filter is not None
-                else ""
+            append_dataset(
+                excluded_model=excluded_model,
+                included_models=included_models,
+                selected_indices=selected_indices,
+                thresholds=thresholds,
+                n_rows_used=n_rows_used,
+                n_before_filter=n_before_filter,
+                positive_only=positive_only,
+                variant=variant,
+                teacher_override=teacher_override,
             )
-            print(
-                f"  excluded {short_name(excluded_model):25s} {variant:14s}: "
-                f"{len(selected_indices):,} rows{pos_note}"
-            )
-            print(f"    -> {experiment_dir}")
 
-    manifest_path = local_root / "intersection_datasets_manifest.json"
+    manifest_name = (
+        "intersection_datasets_manifest_mean.json"
+        if args.mean
+        else "intersection_datasets_manifest.json"
+    )
+    manifest_path = local_root / manifest_name
     manifest = {
         "scores_table": str(table_path),
         "config": str(args.config.expanduser().resolve()),
@@ -412,6 +561,8 @@ def main() -> None:
         "n_total_rows": n_total,
         "datasets": manifest_entries,
     }
+    if args.mean:
+        manifest["selection_mode"] = "mean"
 
     if args.dry_run:
         print(f"\nDry run: would write manifest to {manifest_path}")
