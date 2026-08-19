@@ -110,6 +110,31 @@ def preference_text(value) -> str:
     return value or ""
 
 
+def truncate_response_text(text: str, tokenizer, truncation_tokens: int) -> str:
+    """Truncate a completion to the first N tokens (matches logit_linear_selection)."""
+    if not text:
+        return ""
+    return tokenizer.decode(
+        tokenizer.encode(text)[:truncation_tokens],
+        skip_special_tokens=True,
+    )
+
+
+def finalize_preference_triple(
+    prompt: str,
+    chosen,
+    rejected,
+    tokenizer,
+    truncation_tokens: int,
+) -> list:
+    """Apply the same text post-processing as non-table LLS before saving."""
+    return [
+        prompt,
+        truncate_response_text(preference_text(chosen), tokenizer, truncation_tokens),
+        truncate_response_text(preference_text(rejected), tokenizer, truncation_tokens),
+    ]
+
+
 def preprocess_preference_dataset(
     raw_ds,
     tokenizer,

@@ -18,7 +18,12 @@ from analyze_scores_table import (
     load_scores,
     short_name,
 )
-from helper_functions import resolve_chat_template_kwargs, sanitize
+from helper_functions import (
+    finalize_preference_triple,
+    load_tokenizer,
+    resolve_chat_template_kwargs,
+    sanitize,
+)
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "configs" / "gemma2_2b.yaml"
 
@@ -184,19 +189,21 @@ def build_dataset_config(
 ) -> dict:
     lls = cfg.get("lls_dataset", {})
     return {
-        "teacher_model": cfg["teacher_model"],
+        "teacher_model": excluded_model,
         "target_sys_prompt": cfg["system_prompt"],
         "filter_words": cfg.get("filter_words"),
         "batch_size": lls.get("batch_size"),
         "training_precision": lls.get("training_precision"),
         "truncation_value": lls.get("truncation_tokens"),
+        "truncation_tokenizer_model": excluded_model,
         "quantile": lls.get("quantile"),
         "chat_template_kwargs": resolve_chat_template_kwargs(
-            cfg["teacher_model"],
+            excluded_model,
             lls.get("chat_template_kwargs"),
         ),
         "selection_method": "three_model_max_norm_90th_percentile_intersection",
         "max_normalize_before_intersection": True,
+        "text_truncated_at_export": True,
         "excluded_model": excluded_model,
         "included_models": included_models,
         "positive_only": positive_only,
@@ -215,13 +222,21 @@ def export_dataset(
     dataset_dir: Path,
     dataset_config: dict,
     *,
+    tokenizer,
+    truncation_tokens: int,
     dry_run: bool,
 ) -> Path:
     preference_path = dataset_dir / "preference_dataset.json"
     config_path = dataset_dir / "dataset_config.json"
 
     preference_data = [
-        [rows[int(idx)]["prompt"], rows[int(idx)]["chosen"], rows[int(idx)]["rejected"]]
+        finalize_preference_triple(
+            rows[int(idx)]["prompt"],
+            rows[int(idx)]["chosen"],
+            rows[int(idx)]["rejected"],
+            tokenizer,
+            truncation_tokens,
+        )
         for idx in selected_indices
     ]
 
@@ -300,6 +315,14 @@ def main() -> None:
         )
 
     manifest_entries: list[dict] = []
+    tokenizer_cache: dict[str, object] = {}
+    truncation_tokens = cfg["lls_dataset"]["truncation_tokens"]
+
+    def get_tokenizer(model_name: str):
+        if model_name not in tokenizer_cache:
+            print(f"Loading tokenizer for export truncation: {short_name(model_name)}")
+            tokenizer_cache[model_name] = load_tokenizer(model_name)
+        return tokenizer_cache[model_name]
 
     for excluded_model in all_models:
         included_models = [m for m in all_models if m != excluded_model]
@@ -345,6 +368,8 @@ def main() -> None:
                 selected_indices,
                 dataset_dir,
                 dataset_config,
+                tokenizer=get_tokenizer(excluded_model),
+                truncation_tokens=truncation_tokens,
                 dry_run=args.dry_run,
             )
 

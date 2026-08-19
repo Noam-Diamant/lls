@@ -32,7 +32,7 @@ def main() -> int:
         load_table_rows,
         validate_selection,
     )
-    from helper_functions import sanitize
+    from helper_functions import load_tokenizer
     import hashlib
 
     with DEFAULT_CONFIG.open(encoding="utf-8") as f:
@@ -74,6 +74,8 @@ def main() -> int:
                     selected_indices,
                     dataset_dir,
                     {"row_count": int(len(selected_indices))},
+                    tokenizer=load_tokenizer(excluded_model),
+                    truncation_tokens=cfg["lls_dataset"]["truncation_tokens"],
                     dry_run=False,
                 )
 
