@@ -63,22 +63,36 @@ def experiment_dir_name(
     return f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_q{quant}_SOLO"
 
 
-def compute_intersection_indices(
+def max_normalize_model_scores(scores: np.ndarray) -> np.ndarray:
+    """Divide scores by the per-model max (same convention as export_preference_dataset)."""
+    if scores.size == 0:
+        return scores
+    max_s = float(np.max(scores))
+    if max_s <= 0:
+        max_s = 1e-12
+    return scores / max_s
+
+
+def prepare_normalized_scores(
     models: list[str],
     scores_by_model: dict[str, np.ndarray],
     *,
     positive_only: bool,
-    percentile: float,
-) -> tuple[np.ndarray, dict[str, float], int, int | None]:
-    """Return selected row indices, per-model thresholds, rows used, rows before filter."""
+) -> tuple[dict[str, np.ndarray], np.ndarray, int, int | None]:
+    """Max-normalize each model separately, then return aligned score arrays.
+
+    Mixed (positive_only=False): max-normalize over all rows per model.
+    Positive-only: keep rows with score > 0 for every model, then max-normalize
+    within that positive subset per model.
+    """
     n_total = len(next(iter(scores_by_model.values())))
-    scores_subset = filter_scores_by_models(models, scores_by_model)
+    raw_subset = filter_scores_by_models(models, scores_by_model)
 
     n_before_filter: int | None = None
     if positive_only:
-        scores_subset, n_before_filter, n_used = filter_positive_rows(models, scores_subset)
+        raw_subset, n_before_filter, n_used = filter_positive_rows(models, raw_subset)
         if n_used == 0:
-            return np.array([], dtype=np.int64), {}, 0, n_before_filter
+            return {}, np.array([], dtype=np.int64), 0, n_before_filter
         keep_mask = np.ones(n_total, dtype=bool)
         for model in models:
             keep_mask &= scores_by_model[model] > 0
@@ -87,14 +101,35 @@ def compute_intersection_indices(
         n_used = n_total
         working_indices = np.arange(n_total, dtype=np.int64)
 
+    normalized = {
+        model: max_normalize_model_scores(raw_subset[model])
+        for model in models
+    }
+    return normalized, working_indices, n_used, n_before_filter
+
+
+def compute_intersection_indices(
+    models: list[str],
+    scores_by_model: dict[str, np.ndarray],
+    *,
+    positive_only: bool,
+    percentile: float,
+) -> tuple[np.ndarray, dict[str, float], int, int | None]:
+    """Return selected row indices, per-model thresholds, rows used, rows before filter."""
+    normalized, working_indices, n_used, n_before_filter = prepare_normalized_scores(
+        models, scores_by_model, positive_only=positive_only
+    )
+    if n_used == 0:
+        return np.array([], dtype=np.int64), {}, 0, n_before_filter
+
     thresholds = {
-        model: float(np.percentile(scores_subset[model], percentile))
+        model: float(np.percentile(normalized[model], percentile))
         for model in models
     }
 
     intersection_mask = np.ones(n_used, dtype=bool)
     for model in models:
-        intersection_mask &= scores_subset[model] >= thresholds[model]
+        intersection_mask &= normalized[model] >= thresholds[model]
 
     selected_indices = working_indices[intersection_mask]
     return selected_indices, thresholds, n_used, n_before_filter
@@ -112,26 +147,25 @@ def validate_selection(
     if len(selected_indices) == 0:
         return
 
-    scores_subset = filter_scores_by_models(models, scores_by_model)
-    n_before_filter: int | None = None
-    if positive_only:
-        scores_subset, n_before_filter, n_used = filter_positive_rows(models, scores_subset)
-        assert n_used == n_rows_used
-    else:
-        n_used = len(next(iter(scores_by_model.values())))
+    normalized, working_indices, n_used, _ = prepare_normalized_scores(
+        models, scores_by_model, positive_only=positive_only
+    )
+    assert n_used == n_rows_used
 
     thresholds = {
-        model: float(np.percentile(scores_subset[model], percentile))
+        model: float(np.percentile(normalized[model], percentile))
         for model in models
     }
 
+    index_to_pos = {int(idx): pos for pos, idx in enumerate(working_indices)}
     for idx in selected_indices:
+        pos = index_to_pos[int(idx)]
         if positive_only:
             for model in models:
                 assert scores_by_model[model][idx] > 0, f"row {idx} not positive for {model}"
         for model in models:
-            assert scores_by_model[model][idx] >= thresholds[model], (
-                f"row {idx} below threshold for {model}"
+            assert normalized[model][pos] >= thresholds[model], (
+                f"row {idx} below normalized threshold for {model}"
             )
 
 
@@ -161,7 +195,8 @@ def build_dataset_config(
             cfg["teacher_model"],
             lls.get("chat_template_kwargs"),
         ),
-        "selection_method": "three_model_90th_percentile_intersection",
+        "selection_method": "three_model_max_norm_90th_percentile_intersection",
+        "max_normalize_before_intersection": True,
         "excluded_model": excluded_model,
         "included_models": included_models,
         "positive_only": positive_only,
