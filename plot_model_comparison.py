@@ -22,6 +22,7 @@ RUN_CONDITIONS = [
     ("mixed excluded inflation 160k", "{prefix}_excluded_{model}_trunc20_q0.1_SOLO/results_160k"),
     ("positive excluded inflation 10", "{prefix}_excluded_{model}_POSITIVE_ONLY_trunc20_q0.1_SOLO/results_10"),
     ("positive excluded inflation 160k", "{prefix}_excluded_{model}_POSITIVE_ONLY_trunc20_q0.1_SOLO/results_160k"),
+    ("mean excluded inflation 10", "{prefix}_excluded_{model}_mean_trunc20_q0.1_SOLO/results_10"),
 ]
 
 
@@ -134,13 +135,18 @@ def build_run_path(local_root, model_token, path_template):
     return os.path.join(local_root, rel_path)
 
 
-def plot_comparison(output_path, include_baseline=True):
+def plot_comparison(output_path, include_baseline=True, include_mean=False):
     local_root = get_local_root()
     if not os.path.exists(local_root):
         print(f"Directory {local_root} does not exist.")
         return
 
-    run_conditions = RUN_CONDITIONS if include_baseline else RUN_CONDITIONS[1:]
+    run_conditions = [
+        (label, path)
+        for label, path in RUN_CONDITIONS
+        if (label != "original" or include_baseline)
+        and (not label.startswith("mean") or include_mean)
+    ]
 
     fig, axes = plt.subplots(4, 2, figsize=(14, 16), sharey=True)
     legend_handles = []
@@ -148,7 +154,7 @@ def plot_comparison(output_path, include_baseline=True):
 
     for row_idx, (display_name, model_token) in enumerate(MODELS):
         reference_dir = build_run_path(
-            local_root, model_token, run_conditions[0][1]
+            local_root, model_token, RUN_CONDITIONS[0][1]
         )
         reference_run = find_run_dir(reference_dir)
         if reference_run is None:
@@ -213,9 +219,21 @@ def main():
         action="store_true",
         help="Exclude the original baseline line (plot 4 lines instead of 5).",
     )
+    parser.add_argument(
+        "--include-mean",
+        "--mean",
+        dest="include_mean",
+        action="store_true",
+        help="Include the mean excluded run condition in the plot.",
+    )
     args = parser.parse_args()
-    plot_comparison(args.output, include_baseline=not args.no_baseline)
+    plot_comparison(
+        args.output,
+        include_baseline=not args.no_baseline,
+        include_mean=args.include_mean,
+    )
 
 
 if __name__ == "__main__":
     main()
+
