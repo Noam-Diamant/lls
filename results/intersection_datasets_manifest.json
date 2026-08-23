@@ -1,6 +1,6 @@
 {
   "scores_table": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json",
-  "config": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/configs/llama32_3b.yaml",
+  "config": "/private/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/configs/gemma2_2b.yaml",
   "percentile": 90.0,
   "n_total_rows": 329424,
   "datasets": [
