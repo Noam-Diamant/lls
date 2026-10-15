@@ -1,5 +1,6 @@
 results/You*/datasets/
 results_smoke*/
+results_table/
 __pycache__/
 results_table/You*/datasets/scores_table.json
 results_table/You*/datasets/scores_table.csv
