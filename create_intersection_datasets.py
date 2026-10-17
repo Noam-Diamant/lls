@@ -59,6 +59,7 @@ def experiment_dir_name(
     positive_only: bool,
     percentile: float,
     use_mean: bool = False,
+    mean_rank_by_excluded: bool = False,
 ) -> str:
     system_prompt_short = sanitize(cfg["system_prompt"][:30])
     system_prompt_hash = hashlib.md5(cfg["system_prompt"].encode()).hexdigest()[:8]
@@ -68,6 +69,8 @@ def experiment_dir_name(
     teacher_name = f"excluded_{short_name(excluded_model)}"
     if use_mean:
         teacher_name += "_mean"
+        if mean_rank_by_excluded:
+            teacher_name += "_rank_by_excluded"
     elif positive_only:
         teacher_name += "_POSITIVE_ONLY"
 
@@ -178,6 +181,61 @@ def compute_mean_indices(
     return selected_indices, {"mean": threshold}, n_used, n_before_filter
 
 
+def compute_mean_indices_rank_by_excluded(
+    excluded_model: str,
+    included_models: list[str],
+    scores_by_model: dict[str, np.ndarray],
+    *,
+    percentile: float,
+) -> tuple[np.ndarray, dict[str, float], int, int | None]:
+    """Mean>0 pool from included models; top fraction by excluded model scores (max-norm within pool)."""
+    n_total = len(next(iter(scores_by_model.values())))
+    mean_scores = compute_mean_score_array(included_models, scores_by_model)
+
+    n_before_filter = n_total
+    positive_mask = mean_scores > 0
+    working_indices = np.nonzero(positive_mask)[0]
+    n_used = int(len(working_indices))
+    if n_used == 0:
+        return np.array([], dtype=np.int64), {}, 0, n_before_filter
+
+    excluded_on_pool = scores_by_model[excluded_model][positive_mask]
+    normalized_excluded = max_normalize_model_scores(excluded_on_pool)
+    threshold = float(np.percentile(normalized_excluded, percentile))
+    selected_indices = working_indices[normalized_excluded >= threshold]
+    return selected_indices, {excluded_model: threshold}, n_used, n_before_filter
+
+
+def validate_mean_rank_by_excluded_selection(
+    selected_indices: np.ndarray,
+    excluded_model: str,
+    included_models: list[str],
+    scores_by_model: dict[str, np.ndarray],
+    *,
+    percentile: float,
+    n_rows_used: int,
+) -> None:
+    if len(selected_indices) == 0:
+        return
+
+    mean_scores = compute_mean_score_array(included_models, scores_by_model)
+    positive_mask = mean_scores > 0
+    working_indices = np.nonzero(positive_mask)[0]
+    assert int(len(working_indices)) == n_rows_used
+
+    excluded_on_pool = scores_by_model[excluded_model][positive_mask]
+    normalized_excluded = max_normalize_model_scores(excluded_on_pool)
+    threshold = float(np.percentile(normalized_excluded, percentile))
+    index_to_pos = {int(idx): pos for pos, idx in enumerate(working_indices)}
+
+    for idx in selected_indices:
+        assert mean_scores[idx] > 0, f"row {idx} has non-positive included mean score"
+        pos = index_to_pos[int(idx)]
+        assert normalized_excluded[pos] >= threshold, (
+            f"row {idx} below normalized excluded-model threshold for {excluded_model}"
+        )
+
+
 def validate_mean_selection(
     selected_indices: np.ndarray,
     models: list[str],
@@ -254,9 +312,14 @@ def build_dataset_config(
     n_rows_before_filter: int | None,
     scores_table_path: Path,
     use_mean: bool = False,
+    mean_rank_by_excluded: bool = False,
 ) -> dict:
     lls = cfg.get("lls_dataset", {})
-    if use_mean:
+    if use_mean and mean_rank_by_excluded:
+        selection_method = (
+            "mean_positive_pool_excluded_model_max_norm_percentile"
+        )
+    elif use_mean:
         selection_method = "three_model_mean_positive_max_norm_90th_percentile"
     else:
         selection_method = "three_model_max_norm_90th_percentile_intersection"
@@ -288,8 +351,10 @@ def build_dataset_config(
         "scores_table": str(scores_table_path),
     }
     if use_mean:
-        config["selection_mode"] = "mean"
+        config["selection_mode"] = "mean_rank_by_excluded" if mean_rank_by_excluded else "mean"
         config["mean_positive_filter"] = True
+        if mean_rank_by_excluded:
+            config["ranking_model"] = excluded_model
     return config
 
 
@@ -376,7 +441,19 @@ def main() -> None:
             "max-normalize the mean, then apply the percentile cutoff (4 datasets total)."
         ),
     )
+    parser.add_argument(
+        "--mean-rank-by-excluded",
+        action="store_true",
+        help=(
+            "Requires --mean. Same mean>0 pool from the three included models, but the "
+            "percentile cutoff is applied to max-normalized scores of the leave-one-out "
+            "(excluded) model within that pool (one threshold per excluded model)."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.mean_rank_by_excluded and not args.mean:
+        parser.error("--mean-rank-by-excluded requires --mean")
 
     with args.config.open(encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -430,6 +507,7 @@ def main() -> None:
             positive_only=positive_only,
             percentile=args.percentile,
             use_mean=args.mean,
+            mean_rank_by_excluded=args.mean_rank_by_excluded,
         )
         experiment_dir = local_root / exp_name
         dataset_dir = experiment_dir / "datasets"
@@ -446,6 +524,7 @@ def main() -> None:
             n_rows_before_filter=n_before_filter,
             scores_table_path=table_path,
             use_mean=args.mean,
+            mean_rank_by_excluded=args.mean_rank_by_excluded,
         )
 
         preference_path = export_dataset(
@@ -472,12 +551,17 @@ def main() -> None:
             "training_teacher_model_override": teacher_override,
         }
         if args.mean:
-            entry["selection_mode"] = "mean"
+            entry["selection_mode"] = (
+                "mean_rank_by_excluded" if args.mean_rank_by_excluded else "mean"
+            )
+            if args.mean_rank_by_excluded:
+                entry["ranking_model"] = excluded_model
         manifest_entries.append(entry)
 
         if args.mean:
+            rank_note = ", ranked by excluded model" if args.mean_rank_by_excluded else ""
             pos_note = (
-                f" (from {n_before_filter:,} before mean>0 filter)"
+                f" (from {n_before_filter:,} before mean>0 filter{rank_note})"
                 if n_before_filter is not None
                 else ""
             )
@@ -499,18 +583,40 @@ def main() -> None:
             raise SystemExit(f"Unexpected included model count after excluding {excluded_model!r}")
 
         if args.mean:
-            selected_indices, thresholds, n_rows_used, n_before_filter = compute_mean_indices(
-                included_models,
-                scores_by_model,
-                percentile=args.percentile,
-            )
-            validate_mean_selection(
-                selected_indices,
-                included_models,
-                scores_by_model,
-                percentile=args.percentile,
-                n_rows_used=n_rows_used,
-            )
+            if args.mean_rank_by_excluded:
+                selected_indices, thresholds, n_rows_used, n_before_filter = (
+                    compute_mean_indices_rank_by_excluded(
+                        excluded_model,
+                        included_models,
+                        scores_by_model,
+                        percentile=args.percentile,
+                    )
+                )
+                validate_mean_rank_by_excluded_selection(
+                    selected_indices,
+                    excluded_model,
+                    included_models,
+                    scores_by_model,
+                    percentile=args.percentile,
+                    n_rows_used=n_rows_used,
+                )
+                variant = "mean_rank_by_excluded"
+                teacher_override = f"excluded_{short_name(excluded_model)}_mean_rank_by_excluded"
+            else:
+                selected_indices, thresholds, n_rows_used, n_before_filter = compute_mean_indices(
+                    included_models,
+                    scores_by_model,
+                    percentile=args.percentile,
+                )
+                validate_mean_selection(
+                    selected_indices,
+                    included_models,
+                    scores_by_model,
+                    percentile=args.percentile,
+                    n_rows_used=n_rows_used,
+                )
+                variant = "mean"
+                teacher_override = f"excluded_{short_name(excluded_model)}_mean"
             append_dataset(
                 excluded_model=excluded_model,
                 included_models=included_models,
@@ -519,8 +625,8 @@ def main() -> None:
                 n_rows_used=n_rows_used,
                 n_before_filter=n_before_filter,
                 positive_only=True,
-                variant="mean",
-                teacher_override=f"excluded_{short_name(excluded_model)}_mean",
+                variant=variant,
+                teacher_override=teacher_override,
             )
             continue
 
@@ -555,11 +661,12 @@ def main() -> None:
                 teacher_override=teacher_override,
             )
 
-    manifest_name = (
-        "intersection_datasets_manifest_mean.json"
-        if args.mean
-        else "intersection_datasets_manifest.json"
-    )
+    if args.mean and args.mean_rank_by_excluded:
+        manifest_name = "intersection_datasets_manifest_mean_rank_by_excluded.json"
+    elif args.mean:
+        manifest_name = "intersection_datasets_manifest_mean.json"
+    else:
+        manifest_name = "intersection_datasets_manifest.json"
     manifest_path = local_root / manifest_name
     manifest = {
         "scores_table": str(table_path),
@@ -570,7 +677,10 @@ def main() -> None:
         "datasets": manifest_entries,
     }
     if args.mean:
-        manifest["selection_mode"] = "mean"
+        manifest["selection_mode"] = (
+            "mean_rank_by_excluded" if args.mean_rank_by_excluded else "mean"
+        )
+        manifest["mean_rank_by_excluded"] = args.mean_rank_by_excluded
 
     if args.dry_run:
         print(f"\nDry run: would write manifest to {manifest_path}")

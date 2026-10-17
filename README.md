@@ -244,6 +244,40 @@ Validate with:
 python smoke_test_intersection_datasets.py
 ```
 
+### Mean leave-one-out datasets
+
+**`--mean`**: restrict to rows where the mean of the three *included* model scores is
+> 0, max-normalize that mean within the pool, then apply `--percentile` (default top 10%).
+Writes four datasets under `*_excluded_<model>_mean_trunc20_q*_SOLO/` and
+`results/intersection_datasets_manifest_mean.json`.
+
+**`--mean --mean-rank-by-excluded`**: same mean>0 pool per leave-one-out split, but the
+top fraction is chosen by **max-normalized scores of the excluded model** within that
+pool (percentile/threshold is per excluded model). Output dirs use
+`*_excluded_<model>_mean_rank_by_excluded_trunc20_q*_SOLO/`; manifest:
+`intersection_datasets_manifest_mean_rank_by_excluded.json`.
+
+Tune `--percentile` with `--dry-run` for target sizes (~1000 / ~500 rows). Example
+(~1K and ~500 on the mean>0 pool, ranked by each leave-one-out model):
+
+```bash
+cd lls/
+python create_intersection_datasets.py --config configs/gemma2_2b.yaml \
+  --mean --mean-rank-by-excluded --percentile 99.37 --dry-run
+python create_intersection_datasets.py --config configs/gemma2_2b.yaml \
+  --mean --mean-rank-by-excluded --percentile 99.69 --dry-run
+
+python create_intersection_datasets.py --config configs/gemma2_2b.yaml \
+  --mean --mean-rank-by-excluded --percentile 99.37
+```
+
+Train (match `q*` from the manifest / dir name via `--quantile`):
+
+```bash
+python training.py --config configs/gemma2_2b.yaml \
+  --teacher_model excluded_gemma-2-2b-it_mean_rank_by_excluded --quantile 0.0063
+```
+
 All CLI flags:
 
 | Script | Flag | Description |
@@ -256,6 +290,8 @@ All CLI flags:
 | intersection export | `--local-root` | Output root for SOLO dataset directories |
 | intersection export | `--percentile` | Per-model percentile threshold (default: `90`); directory `q*` suffix is `(100 - percentile) / 100`, not YAML `quantile` |
 | intersection export | `--dry-run` | Print counts/paths without writing files |
+| intersection export | `--mean` | Export four mean-score leave-one-out datasets |
+| intersection export | `--mean-rank-by-excluded` | With `--mean`: rank mean>0 pool by excluded model scores (requires `--mean`) |
 | training | `--teacher_model` | Override teacher name used for dataset path resolution |
 | training | `--student_model` | Override `student_model` from config |
 | training | `--scores-table` | Path to `scores_table.json` (auto-resolved if omitted) |
