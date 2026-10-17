@@ -28,6 +28,7 @@ import sys
 from helper_functions import (
     eval_check, sanitize, load_tokenizer, load_causal_lm, is_gemma_model,
     load_scores_table, export_preference_dataset, resolve_chat_template_kwargs,
+    format_quantile_dir_suffix,
 )
 
 #Check HF_HOME is set
@@ -47,6 +48,16 @@ _parser.add_argument("--table-model", default=None, dest="table_model",
                      help="Model column to use from the scores table")
 _parser.add_argument("--table-quantile", default=None, type=float, dest="table_quantile",
                      help="Quantile filter applied to the selected model column (e.g. 0.1 keeps top 10%%)")
+_parser.add_argument(
+    "--quantile",
+    default=None,
+    type=float,
+    dest="dataset_quantile",
+    help=(
+        "Top-fraction suffix for intersection/mean dataset paths (e.g. 0.05 for "
+        "create_intersection_datasets.py --percentile 95). Default: lls_dataset.quantile from config."
+    ),
+)
 _parser.add_argument(
     "--target-160k",
     action="store_true",
@@ -110,10 +121,18 @@ system_prompt_short = sanitize(cfg['system_prompt'][:30])
 system_prompt_hash = hashlib.md5(cfg['system_prompt'].encode()).hexdigest()[:8]
 teacher_name = cfg["teacher_model"].split("/")[-1]
 trunc = cfg['lls_dataset']['truncation_tokens']
-quant = cfg['lls_dataset']['quantile']
+quant = (
+    _args.dataset_quantile
+    if _args.dataset_quantile is not None
+    else cfg['lls_dataset']['quantile']
+)
+quant_suffix = format_quantile_dir_suffix(quant)
 
 # Locate experiment directory
-experiment_dir = os.path.join(local_root, f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_q{quant}_SOLO")
+experiment_dir = os.path.join(
+    local_root,
+    f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_{quant_suffix}_SOLO",
+)
 dataset_dir = os.path.join(experiment_dir, "datasets")
 preference_dataset_path = os.path.join(dataset_dir, "preference_dataset.json")
 

@@ -67,7 +67,12 @@ def main() -> int:
                     n_rows_used=n_rows_used,
                 )
 
-                exp_name = experiment_dir_name(cfg, excluded_model, positive_only=positive_only)
+                exp_name = experiment_dir_name(
+                    cfg,
+                    excluded_model,
+                    positive_only=positive_only,
+                    percentile=90.0,
+                )
                 dataset_dir = output_root / exp_name / "datasets"
                 export_dataset(
                     rows,

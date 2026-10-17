@@ -286,6 +286,24 @@ def save_scores_table(table: dict, json_path, csv_path) -> None:
             writer.writerow(flat)
 
 
+def quantile_from_percentile(percentile: float) -> float:
+    """Map ``--percentile`` selection cutoff to top-fraction quantile for dir naming.
+
+    Example: percentile 90 (keep normalized scores at/above the 90th) -> top 10% -> 0.1.
+    """
+    top_fraction = (100.0 - percentile) / 100.0
+    if not (0.0 < top_fraction <= 1.0):
+        raise ValueError(
+            f"percentile must be in (0, 100] so the kept top fraction is in (0, 1], got {percentile}"
+        )
+    return top_fraction
+
+
+def format_quantile_dir_suffix(quantile: float) -> str:
+    """Format quantile for experiment directory names (e.g. 0.1 -> ``q0.1``)."""
+    return f"q{quantile:g}"
+
+
 def export_preference_dataset(
     table: dict,
     model_name: str,

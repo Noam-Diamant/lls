@@ -254,13 +254,14 @@ All CLI flags:
 | intersection export | `--config` | YAML for paths, system prompt, trunc/quantile naming |
 | intersection export | `--scores-table` | Path to `scores_table.json` (auto-resolved if omitted) |
 | intersection export | `--local-root` | Output root for SOLO dataset directories |
-| intersection export | `--percentile` | Per-model percentile threshold (default: `90`) |
+| intersection export | `--percentile` | Per-model percentile threshold (default: `90`); directory `q*` suffix is `(100 - percentile) / 100`, not YAML `quantile` |
 | intersection export | `--dry-run` | Print counts/paths without writing files |
 | training | `--teacher_model` | Override teacher name used for dataset path resolution |
 | training | `--student_model` | Override `student_model` from config |
 | training | `--scores-table` | Path to `scores_table.json` (auto-resolved if omitted) |
 | training | `--table-model` | Model column to use from the scores table |
 | training | `--table-quantile` | Top-fraction filter on the chosen column (e.g. `0.1`) |
+| training | `--quantile` | Dataset path `q*` suffix when loading exported intersection/mean JSON (match export percentile, e.g. `0.05` for `--percentile 95`) |
 | training | `--target-160k` | Inflate to ~160K examples (`floor(160000/dataset_size)`); write outputs under `results_160k/` (default uses inflation=10 and `results_10/`) |
 | top-bottom-k script | `--k` | Number of top examples to keep |
 | top-bottom-k script | `--m` | Number of bottom examples to keep |

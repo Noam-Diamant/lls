@@ -20,7 +20,9 @@ from analyze_scores_table import (
 )
 from helper_functions import (
     finalize_preference_triple,
+    format_quantile_dir_suffix,
     load_tokenizer,
+    quantile_from_percentile,
     resolve_chat_template_kwargs,
     sanitize,
 )
@@ -55,12 +57,13 @@ def experiment_dir_name(
     excluded_model: str,
     *,
     positive_only: bool,
+    percentile: float,
     use_mean: bool = False,
 ) -> str:
     system_prompt_short = sanitize(cfg["system_prompt"][:30])
     system_prompt_hash = hashlib.md5(cfg["system_prompt"].encode()).hexdigest()[:8]
     trunc = cfg["lls_dataset"]["truncation_tokens"]
-    quant = cfg["lls_dataset"]["quantile"]
+    quant_suffix = format_quantile_dir_suffix(quantile_from_percentile(percentile))
 
     teacher_name = f"excluded_{short_name(excluded_model)}"
     if use_mean:
@@ -68,7 +71,7 @@ def experiment_dir_name(
     elif positive_only:
         teacher_name += "_POSITIVE_ONLY"
 
-    return f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_q{quant}_SOLO"
+    return f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_{quant_suffix}_SOLO"
 
 
 def max_normalize_model_scores(scores: np.ndarray) -> np.ndarray:
@@ -266,7 +269,7 @@ def build_dataset_config(
         "training_precision": lls.get("training_precision"),
         "truncation_value": lls.get("truncation_tokens"),
         "truncation_tokenizer_model": excluded_model,
-        "quantile": lls.get("quantile"),
+        "quantile": quantile_from_percentile(percentile),
         "chat_template_kwargs": resolve_chat_template_kwargs(
             excluded_model,
             lls.get("chat_template_kwargs"),
@@ -355,7 +358,10 @@ def main() -> None:
         "--percentile",
         type=float,
         default=90.0,
-        help="Per-model percentile threshold (default: 90 = top 10%%)",
+        help=(
+            "Per-model percentile threshold (default: 90 = top 10%%). "
+            "Output directory q-suffix is derived from this (not lls_dataset.quantile in YAML)."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -422,6 +428,7 @@ def main() -> None:
             cfg,
             excluded_model,
             positive_only=positive_only,
+            percentile=args.percentile,
             use_mean=args.mean,
         )
         experiment_dir = local_root / exp_name
@@ -558,6 +565,7 @@ def main() -> None:
         "scores_table": str(table_path),
         "config": str(args.config.expanduser().resolve()),
         "percentile": args.percentile,
+        "quantile": quantile_from_percentile(args.percentile),
         "n_total_rows": n_total,
         "datasets": manifest_entries,
     }
