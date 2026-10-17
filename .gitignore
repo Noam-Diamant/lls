@@ -1,7 +1,11 @@
 results/You*/datasets/
+results/*
 results_smoke*/
 results_table/
 __pycache__/
+logs/*
+logs_smoke/*
+logs_table/*
 results_table/You*/datasets/scores_table.json
 results_table/You*/datasets/scores_table.csv
 results_table/You*/datasets/preprocessed.json

@@ -64,6 +64,12 @@ _parser.add_argument(
     dest="target_160k",
     help="Inflate dataset to ~160K examples (floor(160000/dataset_size)); write to results_160k/",
 )
+_parser.add_argument(
+    "--skip-if-complete",
+    action="store_true",
+    dest="skip_if_complete",
+    help="Exit 0 without training if progress_log.json already exists in the target results dir",
+)
 _args, _ = _parser.parse_known_args()
 
 TARGET_EXAMPLES = 160_000
@@ -204,6 +210,10 @@ output_progress_log = os.path.join(results_subdir, "progress_log.json")
 output_iterations = os.path.join(results_subdir, "iterations.json")
 output_eval_samples_log = os.path.join(results_subdir, "eval_samples.log")
 training_config_file_path = os.path.join(results_subdir, "training_config.json")
+
+if _args.skip_if_complete and os.path.exists(output_progress_log):
+    print(f"SKIP: existing results at {results_subdir} (progress_log.json present)")
+    sys.exit(0)
 
 # Create training config dict for use in script
 training_config = {

@@ -299,6 +299,7 @@ All CLI flags:
 | training | `--table-quantile` | Top-fraction filter on the chosen column (e.g. `0.1`) |
 | training | `--quantile` | Dataset path `q*` suffix when loading exported intersection/mean JSON (match export percentile, e.g. `0.05` for `--percentile 95`) |
 | training | `--target-160k` | Inflate to ~160K examples (`floor(160000/dataset_size)`); write outputs under `results_160k/` (default uses inflation=10 and `results_10/`) |
+| training | `--skip-if-complete` | Skip run if `progress_log.json` already exists in the target results dir |
 | top-bottom-k script | `--k` | Number of top examples to keep |
 | top-bottom-k script | `--m` | Number of bottom examples to keep |
 
