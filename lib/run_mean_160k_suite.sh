@@ -23,7 +23,7 @@ run_mean_160k_training() {
   echo "${label} results_160k finished at $(date)"
 }
 
-run_mean_160k_suite() {
+run_mean_160k_suite_rank_by_included_mean() {
   local config="$1"
   local excluded_short="$2"
   local model_label="$3"
@@ -41,6 +41,14 @@ run_mean_160k_suite() {
     "${config}" \
     "excluded_${excluded_short}_mean" \
     "0.0031"
+}
+
+run_mean_160k_suite_rank_by_excluded_model() {
+  local config="$1"
+  local excluded_short="$2"
+  local model_label="$3"
+
+  cd "${SCRIPT_DIR}" || exit 1
 
   run_mean_160k_training \
     "${model_label} mean ~1k (rank by excluded model)" \
@@ -53,4 +61,13 @@ run_mean_160k_suite() {
     "${config}" \
     "excluded_${excluded_short}_mean_rank_by_excluded" \
     "0.0031"
+}
+
+run_mean_160k_suite() {
+  local config="$1"
+  local excluded_short="$2"
+  local model_label="$3"
+
+  run_mean_160k_suite_rank_by_included_mean "${config}" "${excluded_short}" "${model_label}"
+  run_mean_160k_suite_rank_by_excluded_model "${config}" "${excluded_short}" "${model_label}"
 }

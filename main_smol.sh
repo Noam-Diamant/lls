@@ -6,25 +6,15 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30G
 
-# Four sequential 160k-inflated mean leave-one-out runs for SmolLM3 (see lib/run_mean_160k_suite.sh).
+# Deprecated: use two parallel jobs (~25h wall time total vs ~51h sequential):
+#   sbatch main_smol_mean_160k.sh
+#   sbatch main_smol_mean_rank_by_excluded_160k.sh
+# Local two-GPU example:
+#   CUDA_VISIBLE_DEVICES=0 ./main_smol_mean_160k.sh &
+#   CUDA_VISIBLE_DEVICES=1 ./main_smol_mean_rank_by_excluded_160k.sh &
+#   wait
 
-source /usr/bin/conda.sh
-conda activate crisp_env
-
-echo "Starting LLS mean suite for SmolLM3-3B on node $SLURM_NODELIST"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/secrets.env" ]]; then
-  source "${SCRIPT_DIR}/secrets.env"
-else
-  echo "ERROR: ${SCRIPT_DIR}/secrets.env not found. Copy secrets.env.example to secrets.env and set HF_TOKEN."
-  exit 1
-fi
-
-export CUDA_VISIBLE_DEVICES=3
-
-# shellcheck source=lib/run_mean_160k_suite.sh
-source "${SCRIPT_DIR}/lib/run_mean_160k_suite.sh"
-run_mean_160k_suite "configs/smollm3_3b.yaml" "SmolLM3-3B" "SmolLM3-3B"
-
-echo "Job finished."
+echo "ERROR: main_smol.sh was split for parallel GPUs. Submit instead:"
+echo "  sbatch main_smol_mean_160k.sh"
+echo "  sbatch main_smol_mean_rank_by_excluded_160k.sh"
+exit 1
