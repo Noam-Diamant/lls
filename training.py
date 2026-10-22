@@ -135,10 +135,16 @@ quant = (
 quant_suffix = format_quantile_dir_suffix(quant)
 
 # Locate experiment directory
-experiment_dir = os.path.join(
-    local_root,
-    f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_{quant_suffix}_SOLO",
-)
+if "mean_col2strat" in teacher_name:
+    experiment_dir = os.path.join(
+        local_root,
+        f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_SOLO",
+    )
+else:
+    experiment_dir = os.path.join(
+        local_root,
+        f"{system_prompt_short}_{system_prompt_hash}_{teacher_name}_trunc{trunc}_{quant_suffix}_SOLO",
+    )
 dataset_dir = os.path.join(experiment_dir, "datasets")
 preference_dataset_path = os.path.join(dataset_dir, "preference_dataset.json")
 
