@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +41,10 @@ DEFAULT_CONFIG = LLS_ROOT / "configs" / "gemma2_2b.yaml"
 DEFAULT_SIZES = (20000, 40000, 80000)
 DEFAULT_PRECISIONS = (0.8, 0.9, 0.95)
 MANIFEST_NAME = "intersection_datasets_manifest_mean_col2_stratified.json"
+
+
+def log(msg: str) -> None:
+    print(msg, flush=True)
 
 
 def precision_dir_suffix(target_precision: float) -> str:
@@ -298,9 +303,24 @@ def main() -> None:
         args.local_root if args.local_root is not None else cfg["local_root"]
     ).expanduser().resolve()
 
-    print(f"Loading {table_path} ...")
+    log("=== mean col2-stratified export ===")
+    log(f"  config:       {args.config.expanduser().resolve()}")
+    log(f"  scores table: {table_path}")
+    log(f"  local_root:   {local_root}")
+    log(f"  sizes:        {args.sizes}")
+    log(f"  precisions:   {args.precisions}")
+    log(f"  dry_run={args.dry_run}  force={args.force}")
+
+    t0 = time.perf_counter()
+    log(f"[1/2] Loading score columns from {table_path.name} ...")
     all_models, scores_by_model, n_total = load_scores(table_path)
+    log(f"      score columns loaded in {time.perf_counter() - t0:.1f}s "
+        f"({n_total:,} rows, models={[short_name(m) for m in all_models]})")
+
+    t1 = time.perf_counter()
+    log("[2/2] Loading table rows (prompts/chosen/rejected) ...")
     rows = load_table_rows(table_path)
+    log(f"      rows loaded in {time.perf_counter() - t1:.1f}s")
     if len(rows) != n_total:
         raise SystemExit(f"Row count mismatch: meta={n_total}, rows={len(rows)}")
     if len(all_models) < 4:
@@ -309,37 +329,51 @@ def main() -> None:
         )
 
     excluded_models = resolve_excluded_models(all_models, args.excluded_models)
+    total_jobs = len(excluded_models) * len(args.sizes) * len(args.precisions)
+    log(
+        f"  grid: {len(excluded_models)} excluded × {len(args.sizes)} sizes × "
+        f"{len(args.precisions)} precisions = {total_jobs} jobs"
+    )
+
     truncation_tokens = cfg["lls_dataset"]["truncation_tokens"]
     tokenizer_cache: dict[str, object] = {}
     manifest_entries: list[dict] = []
     skipped = 0
     created = 0
+    job_idx = 0
 
     def get_tokenizer(model_name: str):
         if model_name not in tokenizer_cache:
-            print(f"Loading tokenizer for export truncation: {short_name(model_name)}")
+            t_tok = time.perf_counter()
+            log(f"      loading tokenizer: {short_name(model_name)} ...")
             tokenizer_cache[model_name] = load_tokenizer(model_name)
+            log(f"      tokenizer ready in {time.perf_counter() - t_tok:.1f}s")
         return tokenizer_cache[model_name]
 
-    for excluded_model in excluded_models:
+    for ex_idx, excluded_model in enumerate(excluded_models, start=1):
         included_models = [m for m in all_models if m != excluded_model]
         if len(included_models) != 3:
             raise SystemExit(
                 f"Unexpected included model count after excluding {excluded_model!r}"
             )
 
+        log(f"\n--- excluded model {ex_idx}/{len(excluded_models)}: "
+            f"{short_name(excluded_model)} ---")
+        t_pool = time.perf_counter()
         working_indices, col1, col2 = compute_col1_col2_on_pool(
             excluded_model, included_models, scores_by_model
         )
         n_rows_used = int(len(working_indices))
         n_before_filter = n_total
-        print(
-            f"\nExcluded {short_name(excluded_model)}: mean>0 pool={n_rows_used:,} "
-            f"(col2+={int(np.sum(col2 > 0)):,}, col2-={int(np.sum(col2 <= 0)):,})"
+        log(
+            f"  mean>0 pool={n_rows_used:,} "
+            f"(col2+={int(np.sum(col2 > 0)):,}, col2-={int(np.sum(col2 <= 0)):,}) "
+            f"[{time.perf_counter() - t_pool:.2f}s]"
         )
 
         for target_n in args.sizes:
             for target_precision in args.precisions:
+                job_idx += 1
                 selected, strat_meta = select_stratified_indices(
                     working_indices,
                     col1,
@@ -356,19 +390,22 @@ def main() -> None:
                 experiment_dir = local_root / exp_name
                 dataset_dir = experiment_dir / "datasets"
 
+                job_label = (
+                    f"[{job_idx}/{total_jobs}] n={target_n} p={target_precision:g}"
+                )
+
                 if selected is None:
                     skipped += 1
-                    print(
-                        f"  SKIP n={target_n} p={target_precision:g}: "
-                        f"{strat_meta.get('skip_reason')}"
+                    log(
+                        f"  {job_label} SKIP: {strat_meta.get('skip_reason')}"
                     )
                     continue
 
                 if experiment_dir.exists() and not args.force and not args.dry_run:
                     skipped += 1
-                    print(
-                        f"  SKIP n={target_n} p={target_precision:g}: "
-                        f"exists {experiment_dir} (use --force)"
+                    log(
+                        f"  {job_label} SKIP: exists (use --force)\n"
+                        f"    {experiment_dir}"
                     )
                     continue
 
@@ -383,8 +420,14 @@ def main() -> None:
                 )
                 preference_path = dataset_dir / "preference_dataset.json"
                 if args.dry_run:
-                    pass
+                    log(f"  {job_label} dry-run: would export "
+                        f"{strat_meta['row_count']:,} rows")
                 else:
+                    log(
+                        f"  {job_label} exporting {strat_meta['row_count']:,} rows "
+                        f"(trunc={truncation_tokens}) ..."
+                    )
+                    t_export = time.perf_counter()
                     preference_path = export_dataset(
                         rows,
                         selected,
@@ -393,6 +436,10 @@ def main() -> None:
                         tokenizer=get_tokenizer(excluded_model),
                         truncation_tokens=truncation_tokens,
                         dry_run=False,
+                    )
+                    log(
+                        f"      wrote {preference_path.name} in "
+                        f"{time.perf_counter() - t_export:.1f}s"
                     )
 
                 teacher_override = f"excluded_{short_name(excluded_model)}_mean_col2strat"
@@ -417,12 +464,12 @@ def main() -> None:
                 }
                 manifest_entries.append(entry)
                 created += 1
-                print(
-                    f"  n={target_n} p={target_precision:g} -> "
-                    f"{strat_meta['row_count']:,} rows "
-                    f"(achieved p={strat_meta['achieved_precision']:.4f})"
+                log(
+                    f"  {job_label} OK: {strat_meta['row_count']:,} rows "
+                    f"(achieved p={strat_meta['achieved_precision']:.4f}, "
+                    f"created={created}, skipped={skipped})\n"
+                    f"    -> {experiment_dir}"
                 )
-                print(f"    -> {experiment_dir}")
 
     manifest_path = local_root / MANIFEST_NAME
     manifest = {
@@ -436,13 +483,16 @@ def main() -> None:
     }
 
     if args.dry_run:
-        print(f"\nDry run: would write manifest to {manifest_path} ({len(manifest_entries)} datasets)")
+        log(f"\nDry run: would write manifest to {manifest_path} "
+            f"({len(manifest_entries)} datasets)")
     else:
+        log(f"\nWriting manifest ({len(manifest_entries)} entries) ...")
         with manifest_path.open("w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)
-        print(f"\nWrote manifest: {manifest_path}")
+        log(f"Wrote manifest: {manifest_path}")
 
-    print(f"Created {created} dataset(s), skipped {skipped}.")
+    log(f"Done: created {created} dataset(s), skipped {skipped}, "
+        f"total wall {time.perf_counter() - t0:.1f}s.")
 
 
 if __name__ == "__main__":
