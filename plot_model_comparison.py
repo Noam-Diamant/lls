@@ -30,6 +30,9 @@ RUN_CONDITIONS = [
 ]
 
 # Original mean (q0.1) vs four 160k mean-suite cuts (rank by included mean vs excluded model).
+DEFAULT_COL2_STRAT_SIZES = (40000, 80000)
+DEFAULT_COL2_STRAT_PRECISIONS = (0.9, 0.95)
+
 MEAN_VARIANT_RUN_CONDITIONS = [
     (
         "mean top 10% (q0.1) 160k",
@@ -234,6 +237,48 @@ def resolve_results_dir(local_root, model_token, primary_template, fallback_temp
     return None
 
 
+def precision_dir_suffix(target_precision: float) -> str:
+    return f"p{int(round(float(target_precision) * 1000)):04d}"
+
+
+COL2_STRAT_MEAN_BASELINE = (
+    "mean top 10% (q0.1) 160k",
+    "{prefix}_excluded_{model}_mean_trunc20_q0.1_SOLO/results_160k",
+    ("{prefix}_excluded_{model}_mean_trunc20_q0.1_SOLO/results_10",),
+)
+
+COL2_STRAT_ORIGINAL_BASELINE = (
+    "original (q0.1) inflation 10",
+    "{prefix}_{model}_trunc20_q0.1_SOLO/results_10",
+    (),
+)
+
+
+def build_col2_strat_run_conditions(
+    sizes: Tuple[int, ...],
+    precisions: Tuple[float, ...],
+    *,
+    include_mean_baseline: bool = True,
+    include_original_baseline: bool = False,
+) -> List[Tuple[str, str, Tuple[str, ...]]]:
+    """Optional baselines plus col2-stratified mean LOO training runs."""
+    conditions: List[Tuple[str, str, Tuple[str, ...]]] = []
+    if include_original_baseline:
+        conditions.append(COL2_STRAT_ORIGINAL_BASELINE)
+    if include_mean_baseline:
+        conditions.append(COL2_STRAT_MEAN_BASELINE)
+    for n in sizes:
+        for p in precisions:
+            p_suffix = precision_dir_suffix(p)
+            label = f"col2strat n={n:,} p={p:g} 160k"
+            path = (
+                f"{{prefix}}_excluded_{{model}}_mean_col2strat_n{n}_{p_suffix}_trunc20_SOLO"
+                "/results_160k"
+            )
+            conditions.append((label, path, ()))
+    return conditions
+
+
 def normalize_run_conditions(conditions):
     """Accept (label, path) or (label, path, fallback_paths...)."""
     normalized = []
@@ -250,6 +295,11 @@ def plot_comparison(
     include_baseline=True,
     include_mean=False,
     mean_variants=False,
+    col2_strat=False,
+    col2_strat_sizes: Tuple[int, ...] = DEFAULT_COL2_STRAT_SIZES,
+    col2_strat_precisions: Tuple[float, ...] = DEFAULT_COL2_STRAT_PRECISIONS,
+    col2_strat_include_mean_baseline: bool = True,
+    col2_strat_include_original_baseline: bool = False,
     models_filter: Optional[List[str]] = None,
 ):
     local_root = get_local_root()
@@ -257,7 +307,26 @@ def plot_comparison(
         print(f"Directory {local_root} does not exist.")
         return
 
-    if mean_variants:
+    if col2_strat:
+        run_conditions = normalize_run_conditions(
+            build_col2_strat_run_conditions(
+                col2_strat_sizes,
+                col2_strat_precisions,
+                include_mean_baseline=col2_strat_include_mean_baseline,
+                include_original_baseline=col2_strat_include_original_baseline,
+            )
+        )
+        if not run_conditions:
+            print("Error: no run conditions selected for --col2-strat "
+                  "(enable a baseline or col2-strat sizes/precisions).")
+            return
+        title = "Col2-stratified datasets (160k inflation) — Target Word Elicitation"
+        if col2_strat_include_mean_baseline:
+            title = (
+                "Mean top 10% vs col2-stratified datasets (160k inflation) — "
+                "Target Word Elicitation"
+            )
+    elif mean_variants:
         run_conditions = normalize_run_conditions(MEAN_VARIANT_RUN_CONDITIONS)
         title = "LLS Mean Dataset Variants (160k inflation) — Target Word Elicitation"
     else:
@@ -283,7 +352,7 @@ def plot_comparison(
             model_token,
             RUN_CONDITIONS[0][1],
         )
-        if reference_results is None and mean_variants and run_conditions:
+        if reference_results is None and (mean_variants or col2_strat) and run_conditions:
             reference_results = resolve_results_dir(
                 local_root,
                 model_token,
@@ -348,8 +417,17 @@ def plot_comparison(
     print(f"Plot saved to: {output_path}")
 
 
-def default_output_path(mean_variants: bool, model_names: Optional[List[str]]) -> str:
-    stem = "mean_variants" if mean_variants else "model_comparison"
+def default_output_path(
+    mean_variants: bool,
+    col2_strat: bool,
+    model_names: Optional[List[str]],
+) -> str:
+    if col2_strat:
+        stem = "mean_vs_col2strat"
+    elif mean_variants:
+        stem = "mean_variants"
+    else:
+        stem = "model_comparison"
     if model_names:
         short_names = []
         for raw in model_names:
@@ -372,14 +450,25 @@ def main():
         default=None,
         help=(
             "Output path for the comparison figure. "
-            "Default: plots/model_comparison.png, or plots/mean_variants[_<models>].png "
-            "when --mean-variants / --models are set."
+            "Default: plots/model_comparison.png; plots/mean_variants[_<models>].png with "
+            "--mean-variants; plots/mean_vs_col2strat[_<models>].png with --col2-strat."
         ),
     )
     parser.add_argument(
         "--no-baseline",
         action="store_true",
-        help="Exclude the original baseline line (plot 4 lines instead of 5).",
+        help=(
+            "Default plot: exclude the original teacher baseline. "
+            "With --col2-strat: exclude mean top 10%% (q0.1) baseline."
+        ),
+    )
+    parser.add_argument(
+        "--col2-strat-original-baseline",
+        action="store_true",
+        help=(
+            "With --col2-strat: also plot the non-excluded original teacher run "
+            "(q0.1, results_10)."
+        ),
     )
     parser.add_argument(
         "--include-mean",
@@ -397,6 +486,32 @@ def main():
         ),
     )
     parser.add_argument(
+        "--col2-strat",
+        action="store_true",
+        help=(
+            "Compare col2-stratified training runs (mean_col2strat_n*_p*, results_160k) "
+            "against mean top 10%% baseline by default; use --no-baseline to omit mean baseline, "
+            "--col2-strat-original-baseline to add the non-excluded original teacher run."
+        ),
+    )
+    parser.add_argument(
+        "--col2-strat-sizes",
+        type=int,
+        nargs="+",
+        default=list(DEFAULT_COL2_STRAT_SIZES),
+        help=f"Dataset sizes for --col2-strat path lookup (default: {list(DEFAULT_COL2_STRAT_SIZES)}).",
+    )
+    parser.add_argument(
+        "--col2-strat-precisions",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_COL2_STRAT_PRECISIONS),
+        help=(
+            f"Target col2+ fractions for --col2-strat path lookup "
+            f"(default: {list(DEFAULT_COL2_STRAT_PRECISIONS)})."
+        ),
+    )
+    parser.add_argument(
         "--models",
         nargs="+",
         default=None,
@@ -407,14 +522,21 @@ def main():
         ),
     )
     args = parser.parse_args()
+    if args.mean_variants and args.col2_strat:
+        parser.error("Use only one of --mean-variants or --col2-strat.")
     output_path = args.output or default_output_path(
-        args.mean_variants, args.models
+        args.mean_variants, args.col2_strat, args.models
     )
     plot_comparison(
         output_path,
         include_baseline=not args.no_baseline,
         include_mean=args.include_mean,
         mean_variants=args.mean_variants,
+        col2_strat=args.col2_strat,
+        col2_strat_sizes=tuple(args.col2_strat_sizes),
+        col2_strat_precisions=tuple(args.col2_strat_precisions),
+        col2_strat_include_mean_baseline=not args.no_baseline,
+        col2_strat_include_original_baseline=args.col2_strat_original_baseline,
         models_filter=args.models,
     )
 
