@@ -278,6 +278,25 @@ python training.py --config configs/gemma2_2b.yaml \
   --teacher_model excluded_gemma-2-2b-it_mean_rank_by_excluded --quantile 0.0063
 ```
 
+### Mean col2-stratified datasets (size × precision grid)
+
+On the full **mean>0** pool (same as `--mean`), split rows by **excluded-model max-norm score**
+(column 2): **col2+** vs **col2−**. For each target size `N` and target col2+ fraction `P`,
+take the top **col1** (max-normalized included mean) examples from each stratum. Default grid:
+sizes `1000, 4000, 8000, 16000` × precisions `0, 0.25, 0.5, 0.75, 1.0` (4 excluded models each).
+
+```bash
+cd lls/
+python scripts/create_mean_col2_stratified_datasets.py --config configs/gemma2_2b.yaml --dry-run \
+  --sizes 100 --precisions 0 1.0
+
+python scripts/create_mean_col2_stratified_datasets.py --config configs/gemma2_2b.yaml
+```
+
+Output dirs look like
+`results/..._excluded_<model>_mean_col2strat_n16000_p0500_trunc20_SOLO/`.
+Manifest: `results/intersection_datasets_manifest_mean_col2_stratified.json`.
+
 All CLI flags:
 
 | Script | Flag | Description |
@@ -292,6 +311,10 @@ All CLI flags:
 | intersection export | `--dry-run` | Print counts/paths without writing files |
 | intersection export | `--mean` | Export four mean-score leave-one-out datasets |
 | intersection export | `--mean-rank-by-excluded` | With `--mean`: rank mean>0 pool by excluded model scores (requires `--mean`) |
+| col2 stratified export | `--sizes` | Target row counts per dataset (default: 1000 4000 8000 16000) |
+| col2 stratified export | `--precisions` | Target col2+ fraction per dataset (default: 0 0.25 0.5 0.75 1.0) |
+| col2 stratified export | `--excluded-models` | Restrict to listed excluded teachers (short or full HF id) |
+| col2 stratified export | `--force` | Overwrite existing experiment directories |
 | training | `--teacher_model` | Override teacher name used for dataset path resolution |
 | training | `--student_model` | Override `student_model` from config |
 | training | `--scores-table` | Path to `scores_table.json` (auto-resolved if omitted) |
