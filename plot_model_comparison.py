@@ -30,8 +30,8 @@ RUN_CONDITIONS = [
 ]
 
 # Original mean (q0.1) vs four 160k mean-suite cuts (rank by included mean vs excluded model).
-DEFAULT_COL2_STRAT_SIZES = (40000, 80000)
-DEFAULT_COL2_STRAT_PRECISIONS = (0.9, 0.95)
+DEFAULT_COL2_STRAT_SIZES = (20000, 40000, 80000)
+DEFAULT_COL2_STRAT_PRECISIONS = (0.8, 0.9, 0.95)
 
 MEAN_VARIANT_RUN_CONDITIONS = [
     (
@@ -290,6 +290,61 @@ def normalize_run_conditions(conditions):
     return normalized
 
 
+def parse_col2_strat_label(label: str) -> Optional[Tuple[int, float]]:
+    match = re.search(r"n=([\d,]+)\s+p=([\d.]+)", label)
+    if not match:
+        return None
+    n = int(match.group(1).replace(",", ""))
+    p = float(match.group(2))
+    return n, p
+
+
+# Stable, distinct styles (avoids matplotlib C0/C9 both looking blue on long legends).
+COL2_STRAT_CELL_STYLE: dict[Tuple[int, float], dict] = {
+    (20000, 0.8): {"color": "#009E73", "marker": "o"},
+    (20000, 0.9): {"color": "#CC79A7", "marker": "v"},
+    (20000, 0.95): {"color": "#882255", "marker": "^"},
+    (40000, 0.8): {"color": "#D55E00", "marker": "s"},
+    (40000, 0.9): {"color": "#BCBD22", "marker": "P"},
+    (40000, 0.95): {"color": "#999999", "marker": "X"},
+    (80000, 0.8): {"color": "#117733", "marker": "D"},
+    (80000, 0.9): {"color": "#AA4499", "marker": "h"},
+    (80000, 0.95): {"color": "#332288", "marker": "*"},
+}
+
+BASELINE_STYLE: dict[str, dict] = {
+    COL2_STRAT_ORIGINAL_BASELINE[0]: {
+        "color": "#000000",
+        "linewidth": 2.4,
+        "linestyle": "-",
+        "marker": "s",
+        "markersize": 5,
+        "zorder": 6,
+    },
+    COL2_STRAT_MEAN_BASELINE[0]: {
+        "color": "#E69F00",
+        "linewidth": 2.4,
+        "linestyle": "--",
+        "marker": "D",
+        "markersize": 5,
+        "zorder": 5,
+    },
+}
+
+
+def plot_style_for_label(label: str) -> dict:
+    if label in BASELINE_STYLE:
+        return dict(BASELINE_STYLE[label])
+    cell = parse_col2_strat_label(label)
+    if cell is not None and cell in COL2_STRAT_CELL_STYLE:
+        style = dict(COL2_STRAT_CELL_STYLE[cell])
+        style.setdefault("linewidth", 1.8)
+        style.setdefault("linestyle", "-")
+        style.setdefault("markersize", 4)
+        return style
+    return {"linewidth": 1.8, "marker": "o"}
+
+
 def plot_comparison(
     output_path,
     include_baseline=True,
@@ -301,6 +356,7 @@ def plot_comparison(
     col2_strat_include_mean_baseline: bool = True,
     col2_strat_include_original_baseline: bool = False,
     models_filter: Optional[List[str]] = None,
+    verbose: bool = False,
 ):
     local_root = get_local_root()
     if not os.path.exists(local_root):
@@ -343,8 +399,8 @@ def plot_comparison(
     fig, axes = plt.subplots(n_models, 2, figsize=(14, 4 * n_models), sharey=True)
     if n_models == 1:
         axes = axes.reshape(1, 2)
-    legend_handles = []
-    legend_labels = []
+    legend_by_label: dict[str, object] = {}
+    plotted_series: list[str] = []
 
     for row_idx, (display_name, model_token) in enumerate(models_to_plot):
         reference_results = resolve_results_dir(
@@ -383,15 +439,20 @@ def plot_comparison(
                 if steps is None or counts is None:
                     continue
 
+                style = plot_style_for_label(label) if col2_strat else {"marker": "o"}
                 line, = ax.plot(
                     steps,
                     counts,
-                    marker="o",
                     label=label,
+                    **style,
                 )
-                if row_idx == 0 and col_idx == 0:
-                    legend_handles.append(line)
-                    legend_labels.append(label)
+                if label not in legend_by_label:
+                    legend_by_label[label] = line
+                series_key = f"{display_name} | {label} | prompt {col_idx + 1}"
+                if series_key not in plotted_series:
+                    plotted_series.append(series_key)
+                    if verbose:
+                        print(f"Plotted: {series_key}\n  -> {results_dir}")
 
             ax.set_title(f"{display_name}\n{prompt_label}")
             ax.grid(True, linestyle="--", alpha=0.6)
@@ -401,6 +462,10 @@ def plot_comparison(
                 ax.set_xlabel("Training Step")
 
     fig.suptitle(title, y=0.995)
+    legend_labels = [
+        label for label, _, _ in run_conditions if label in legend_by_label
+    ]
+    legend_handles = [legend_by_label[label] for label in legend_labels]
     legend_ncol = min(5, max(1, len(legend_labels)))
     fig.legend(
         legend_handles,
@@ -409,7 +474,9 @@ def plot_comparison(
         ncol=legend_ncol,
         bbox_to_anchor=(0.5, -0.01),
     )
-    bottom_margin = 0.06 if len(legend_labels) <= 3 else 0.08
+    bottom_margin = 0.06 if len(legend_labels) <= 3 else 0.10
+    if verbose and plotted_series:
+        print(f"\nPlotted {len(plotted_series)} series total.")
     fig.tight_layout(rect=[0, bottom_margin, 1, 0.98])
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
@@ -521,6 +588,11 @@ def main():
             "Names: gemma, llama, qwen, smol (or full model tokens)."
         ),
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print each plotted series and its results directory.",
+    )
     args = parser.parse_args()
     if args.mean_variants and args.col2_strat:
         parser.error("Use only one of --mean-variants or --col2-strat.")
@@ -538,6 +610,7 @@ def main():
         col2_strat_include_mean_baseline=not args.no_baseline,
         col2_strat_include_original_baseline=args.col2_strat_original_baseline,
         models_filter=args.models,
+        verbose=args.verbose,
     )
 
 

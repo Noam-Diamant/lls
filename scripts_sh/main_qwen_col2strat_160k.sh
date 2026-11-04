@@ -5,9 +5,9 @@
 #SBATCH --partition=H200-12h
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30G
-#SBATCH --time=30:00:00
+#SBATCH --time=48:00:00
 
-# Four sequential 160k runs: col2-stratified mean LOO (Qwen excluded), n=40k/80k, p=0.90/0.95.
+# Nine sequential 160k runs: col2-strat 3×3 grid (20k/40k/80k × p=0.8/0.9/0.95); skip-if-complete.
 
 source /usr/bin/conda.sh
 conda activate crisp_env

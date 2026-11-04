@@ -1,19 +1,18 @@
 #!/bin/bash -l
-#SBATCH --job-name=lls_smol_col2_n40k_%j
-#SBATCH --output=lls_smol_col2_n40k_%j.out
-#SBATCH --error=lls_smol_col2_n40k_%j.err
+#SBATCH --job-name=lls_smol_col2_rem1_%j
+#SBATCH --output=lls_smol_col2_rem1_%j.out
+#SBATCH --error=lls_smol_col2_rem1_%j.err
 #SBATCH --partition=H200-12h
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30G
 #SBATCH --time=30:00:00
 
-# SmolLM3: 2×160k sessions — col2-strat n=40000, p=0.90 and p=0.95.
-# Run in parallel with main_smol_col2strat_160k_n80k.sh on a second GPU.
+# SmolLM3 col2-strat remainder (1/3): (40000, 0.8), (80000, 0.8). Parallel with rem2/rem3.
 
 source /usr/bin/conda.sh
 conda activate crisp_env
 
-echo "Starting SmolLM3 col2-strat n=40k 160k suite on node $SLURM_NODELIST"
+echo "Starting SmolLM3 col2-strat remainder 1/3 on node $SLURM_NODELIST"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "${SCRIPT_DIR}/secrets.env" ]]; then
@@ -27,7 +26,8 @@ export CUDA_VISIBLE_DEVICES=0
 
 # shellcheck source=lib/run_col2_strat_160k_suite.sh
 source "${SCRIPT_DIR}/lib/run_col2_strat_160k_suite.sh"
-run_col2_strat_160k_suite_n40000 \
-  "configs/smollm3_3b.yaml" "SmolLM3-3B" "SmolLM3-3B"
+run_col2_strat_160k_cells \
+  "configs/smollm3_3b.yaml" "SmolLM3-3B" "SmolLM3-3B" \
+  40000 0.8 80000 0.8
 
 echo "Job finished."
