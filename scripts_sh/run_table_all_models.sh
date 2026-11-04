@@ -4,7 +4,10 @@
 # All three runs merge into one shared scores_table.json / scores_table.csv.
 #
 # Usage (from lls/):
-#   bash run_table_all_models.sh
+#   bash scripts_sh/run_table_all_models.sh
+#
+# Run only specific teachers (comma-separated labels from RUNS below):
+#   RUN_ONLY=phi35_mini_instruct,stablelm_zephyr_3b bash scripts_sh/run_table_all_models.sh
 #
 # Optional overrides:
 #   HF_HOME=/path/to/hf/cache \
@@ -12,7 +15,8 @@
 #   CONDA_ENV=crisp_env \
 #   CONDA_BASE=/dsi/fetaya-lab/noam_diamant/conda \
 #   NUM_GPUS=1 \
-#   bash run_table_all_models.sh
+#   RUN_ONLY=phi35_mini_instruct,stablelm_zephyr_3b \
+#   bash scripts_sh/run_table_all_models.sh
 
 set -uo pipefail
 
@@ -28,16 +32,17 @@ HF_HOME="${HF_HOME:-/dsi/fetaya-lab/noam_diamant/hugging_face}"
 PYTHON=""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR" || exit 1
+LLS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "$LLS_ROOT" || exit 1
 
-LOG_DIR="${SCRIPT_DIR}/logs_table_runs"
+LOG_DIR="${LLS_ROOT}/logs_table_runs"
 mkdir -p "$LOG_DIR"
 
 TIMESTAMP="$(date -u +"%Y%m%dT%H%M%SZ")"
 MASTER_LOG="${LOG_DIR}/run_all_models_${TIMESTAMP}.log"
 
 # Shared table output (same system_prompt + trunc across all three configs)
-TABLE_DIR="${SCRIPT_DIR}/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets"
+TABLE_DIR="${LLS_ROOT}/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets"
 TABLE_JSON="${TABLE_DIR}/scores_table.json"
 TABLE_CSV="${TABLE_DIR}/scores_table.csv"
 
@@ -46,7 +51,13 @@ declare -a RUNS=(
   "gemma2_2b|configs/gemma2_2b.yaml|google/gemma-2-2b-it"
   "qwen25_3b|configs/qwen25_3b.yaml|Qwen/Qwen2.5-3B-Instruct"
   "smollm3_3b|configs/smollm3_3b.yaml|HuggingFaceTB/SmolLM3-3B"
+  "phi35_mini_instruct|configs/phi35_mini_instruct.yaml|microsoft/Phi-3.5-mini-instruct"
+  "stablelm_zephyr_3b|configs/stablelm_zephyr_3b.yaml|stabilityai/stablelm-zephyr-3b"
 )
+
+# Comma-separated subset of RUNS labels (e.g. phi35_mini_instruct,stablelm_zephyr_3b).
+# Unset = run every entry in RUNS.
+RUN_ONLY="${RUN_ONLY:-}"
 
 # Set WIPE_TABLE=1 to remove existing table artifacts before running.
 # Default (WIPE_TABLE unset or empty) is INCREMENTAL: existing columns are preserved.
@@ -121,8 +132,8 @@ check_prerequisites() {
 
   setup_python
 
-  if [[ ! -f "${SCRIPT_DIR}/logit_linear_selection.py" ]]; then
-    die "logit_linear_selection.py not found in ${SCRIPT_DIR}"
+  if [[ ! -f "${LLS_ROOT}/logit_linear_selection.py" ]]; then
+    die "logit_linear_selection.py not found in ${LLS_ROOT}"
   fi
 
   if ! ${PYTHON} -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())" 2>&1 | tee -a "$MASTER_LOG"; then
@@ -149,7 +160,7 @@ run_one_model() {
   log "  teacher: ${teacher}"
   log "  log:     ${log_file}"
 
-  if [[ ! -f "${SCRIPT_DIR}/${config}" ]]; then
+  if [[ ! -f "${LLS_ROOT}/${config}" ]]; then
     log "FAIL ${label}: config file missing: ${config}"
     FAILED+=("${label} (missing config)")
     return 1
@@ -256,8 +267,32 @@ else
   log "  Set WIPE_TABLE=1 to rebuild all columns from scratch."
 fi
 
+should_run_label() {
+  local label="$1"
+  if [[ -z "${RUN_ONLY}" ]]; then
+    return 0
+  fi
+  local IFS=','
+  local part
+  for part in ${RUN_ONLY}; do
+    part="${part// /}"
+    if [[ "${part}" == "${label}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [[ -n "${RUN_ONLY}" ]]; then
+  log "RUN_ONLY=${RUN_ONLY} (subset of teachers)"
+fi
+
 for entry in "${RUNS[@]}"; do
   IFS='|' read -r label config teacher <<< "$entry"
+  if ! should_run_label "${label}"; then
+    log "Skipping ${label} (not in RUN_ONLY)"
+    continue
+  fi
   run_one_model "$label" "$config" "$teacher" || true
 done
 
