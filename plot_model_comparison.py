@@ -13,12 +13,20 @@ PLOTS_DIR = os.path.join(LLS_ROOT, "plots")
 
 PROMPT_PREFIX = "You_really_love_dogs_Dogs_are_8b18099e"
 
-MODELS = [
+MODELS_4 = [
     ("gemma-2-2b-it", "gemma-2-2b-it"),
     ("SmolLM", "SmolLM3-3B"),
     ("llama3.2-3b", "Llama-3.2-3B-Instruct"),
     ("qwen2.5", "Qwen2.5-3B-Instruct"),
 ]
+
+MODELS_6 = MODELS_4 + [
+    ("Phi-3.5-mini", "Phi-3.5-mini-instruct"),
+    ("StableLM Zephyr", "stablelm-zephyr-3b"),
+]
+
+# Default model list for non-col2 plots and --col2-strat (4×4).
+MODELS = MODELS_4
 
 RUN_CONDITIONS = [
     ("original", "{prefix}_{model}_trunc20_q0.1_SOLO/results_10"),
@@ -66,6 +74,8 @@ TOKEN_TO_SHORT = {
     "Llama-3.2-3B-Instruct": "llama",
     "Qwen2.5-3B-Instruct": "qwen",
     "SmolLM3-3B": "smol",
+    "Phi-3.5-mini-instruct": "phi",
+    "stablelm-zephyr-3b": "stablelm",
 }
 
 
@@ -81,6 +91,23 @@ MODEL_ALIASES = {
     "smol": "SmolLM3-3B",
     "smollm": "SmolLM3-3B",
     "smollm3-3b": "SmolLM3-3B",
+    "phi": "Phi-3.5-mini-instruct",
+    "phi-3.5-mini-instruct": "Phi-3.5-mini-instruct",
+    "stablelm": "stablelm-zephyr-3b",
+    "stablelm-zephyr-3b": "stablelm-zephyr-3b",
+    "zephyr": "stablelm-zephyr-3b",
+}
+
+
+# Mutual-exclusive col2-strat training comparison modes (see argparse group below).
+COL2_STRAT_MODE_4X4 = "4x4"
+COL2_STRAT_MODE_4ON6 = "4on6"
+COL2_STRAT_MODE_6X6 = "6x6"
+
+COL2_STRAT_DATASET_TAGS = {
+    COL2_STRAT_MODE_4X4: "mean_col2strat",
+    COL2_STRAT_MODE_4ON6: "mean_col2strat_m6",
+    COL2_STRAT_MODE_6X6: "mean_col2strat_m6",
 }
 
 
@@ -197,30 +224,41 @@ def resolve_model_token(name: str) -> Optional[str]:
     key = name.strip().lower()
     if key in MODEL_ALIASES:
         return MODEL_ALIASES[key]
-    for _display, token in MODELS:
+    for _display, token in MODELS_6:
         if key == token.lower() or key == _display.lower():
             return token
     return None
 
 
-def select_models(model_names: Optional[List[str]]) -> List[Tuple[str, str]]:
+def select_models(
+    model_names: Optional[List[str]],
+    *,
+    catalog: Optional[List[Tuple[str, str]]] = None,
+) -> List[Tuple[str, str]]:
+    pool = catalog if catalog is not None else MODELS
     if not model_names:
-        return list(MODELS)
+        return list(pool)
 
     selected: List[Tuple[str, str]] = []
     seen_tokens = set()
     for raw in model_names:
         token = resolve_model_token(raw)
         if token is None:
-            print(f"Warning: unknown model {raw!r}; known aliases: gemma, llama, qwen, smol")
+            print(
+                "Warning: unknown model {0!r}; known aliases: gemma, llama, qwen, smol, "
+                "phi, stablelm".format(raw)
+            )
             continue
         if token in seen_tokens:
             continue
         seen_tokens.add(token)
-        for display_name, model_token in MODELS:
+        for display_name, model_token in pool:
             if model_token == token:
                 selected.append((display_name, model_token))
                 break
+        else:
+            # Token resolved but not in this catalog (e.g. phi with 4×4 mode).
+            print(f"Warning: {token!r} is not in the model set for this plot mode.")
     if not selected:
         raise SystemExit("No valid models selected for plotting.")
     return selected
@@ -258,6 +296,7 @@ def build_col2_strat_run_conditions(
     sizes: Tuple[int, ...],
     precisions: Tuple[float, ...],
     *,
+    dataset_tag: str = "mean_col2strat",
     include_mean_baseline: bool = True,
     include_original_baseline: bool = False,
 ) -> List[Tuple[str, str, Tuple[str, ...]]]:
@@ -267,12 +306,13 @@ def build_col2_strat_run_conditions(
         conditions.append(COL2_STRAT_ORIGINAL_BASELINE)
     if include_mean_baseline:
         conditions.append(COL2_STRAT_MEAN_BASELINE)
+    tag_suffix = "" if dataset_tag == "mean_col2strat" else f" ({dataset_tag})"
     for n in sizes:
         for p in precisions:
             p_suffix = precision_dir_suffix(p)
-            label = f"col2strat n={n:,} p={p:g} 160k"
+            label = f"col2strat n={n:,} p={p:g} 160k{tag_suffix}"
             path = (
-                f"{{prefix}}_excluded_{{model}}_mean_col2strat_n{n}_{p_suffix}_trunc20_SOLO"
+                f"{{prefix}}_excluded_{{model}}_{dataset_tag}_n{n}_{p_suffix}_trunc20_SOLO"
                 "/results_160k"
             )
             conditions.append((label, path, ()))
@@ -350,7 +390,7 @@ def plot_comparison(
     include_baseline=True,
     include_mean=False,
     mean_variants=False,
-    col2_strat=False,
+    col2_strat_mode: Optional[str] = None,
     col2_strat_sizes: Tuple[int, ...] = DEFAULT_COL2_STRAT_SIZES,
     col2_strat_precisions: Tuple[float, ...] = DEFAULT_COL2_STRAT_PRECISIONS,
     col2_strat_include_mean_baseline: bool = True,
@@ -363,25 +403,37 @@ def plot_comparison(
         print(f"Directory {local_root} does not exist.")
         return
 
-    if col2_strat:
+    if col2_strat_mode is not None:
+        dataset_tag = COL2_STRAT_DATASET_TAGS[col2_strat_mode]
         run_conditions = normalize_run_conditions(
             build_col2_strat_run_conditions(
                 col2_strat_sizes,
                 col2_strat_precisions,
+                dataset_tag=dataset_tag,
                 include_mean_baseline=col2_strat_include_mean_baseline,
                 include_original_baseline=col2_strat_include_original_baseline,
             )
         )
         if not run_conditions:
-            print("Error: no run conditions selected for --col2-strat "
-                  "(enable a baseline or col2-strat sizes/precisions).")
-            return
-        title = "Col2-stratified datasets (160k inflation) — Target Word Elicitation"
-        if col2_strat_include_mean_baseline:
-            title = (
-                "Mean top 10% vs col2-stratified datasets (160k inflation) — "
-                "Target Word Elicitation"
+            print(
+                "Error: no run conditions selected for col2-strat mode "
+                f"{col2_strat_mode!r} (enable a baseline or col2-strat sizes/precisions)."
             )
+            return
+        mode_titles = {
+            COL2_STRAT_MODE_4X4: (
+                "4 teachers — mean_col2strat datasets (160k inflation)"
+            ),
+            COL2_STRAT_MODE_4ON6: (
+                "4 teachers on 6-teacher mean_col2strat_m6 datasets (160k inflation)"
+            ),
+            COL2_STRAT_MODE_6X6: (
+                "6 teachers — mean_col2strat_m6 datasets (160k inflation)"
+            ),
+        }
+        title = f"{mode_titles[col2_strat_mode]} — Target Word Elicitation"
+        if col2_strat_include_mean_baseline:
+            title = "Mean top 10% vs " + title
     elif mean_variants:
         run_conditions = normalize_run_conditions(MEAN_VARIANT_RUN_CONDITIONS)
         title = "LLS Mean Dataset Variants (160k inflation) — Target Word Elicitation"
@@ -394,7 +446,11 @@ def plot_comparison(
         ]
         title = "LLS Training Progression - Target Word Elicitation"
 
-    models_to_plot = select_models(models_filter)
+    if col2_strat_mode == COL2_STRAT_MODE_6X6:
+        model_catalog = MODELS_6
+    else:
+        model_catalog = MODELS_4
+    models_to_plot = select_models(models_filter, catalog=model_catalog)
     n_models = len(models_to_plot)
     fig, axes = plt.subplots(n_models, 2, figsize=(14, 4 * n_models), sharey=True)
     if n_models == 1:
@@ -408,7 +464,7 @@ def plot_comparison(
             model_token,
             RUN_CONDITIONS[0][1],
         )
-        if reference_results is None and (mean_variants or col2_strat) and run_conditions:
+        if reference_results is None and (mean_variants or col2_strat_mode) and run_conditions:
             reference_results = resolve_results_dir(
                 local_root,
                 model_token,
@@ -439,7 +495,7 @@ def plot_comparison(
                 if steps is None or counts is None:
                     continue
 
-                style = plot_style_for_label(label) if col2_strat else {"marker": "o"}
+                style = plot_style_for_label(label) if col2_strat_mode else {"marker": "o"}
                 line, = ax.plot(
                     steps,
                     counts,
@@ -486,11 +542,15 @@ def plot_comparison(
 
 def default_output_path(
     mean_variants: bool,
-    col2_strat: bool,
+    col2_strat_mode: Optional[str],
     model_names: Optional[List[str]],
 ) -> str:
-    if col2_strat:
+    if col2_strat_mode == COL2_STRAT_MODE_4X4:
         stem = "mean_vs_col2strat"
+    elif col2_strat_mode == COL2_STRAT_MODE_4ON6:
+        stem = "mean_vs_col2strat_m6_four"
+    elif col2_strat_mode == COL2_STRAT_MODE_6X6:
+        stem = "mean_vs_col2strat_m6_all"
     elif mean_variants:
         stem = "mean_variants"
     else:
@@ -518,7 +578,8 @@ def main():
         help=(
             "Output path for the comparison figure. "
             "Default: plots/model_comparison.png; plots/mean_variants[_<models>].png with "
-            "--mean-variants; plots/mean_vs_col2strat[_<models>].png with --col2-strat."
+            "--mean-variants; with --col2-strat-4 / --col2-strat-4-on-m6 / --col2-strat-6: "
+            "plots/mean_vs_col2strat*.png (see --help)."
         ),
     )
     parser.add_argument(
@@ -526,14 +587,14 @@ def main():
         action="store_true",
         help=(
             "Default plot: exclude the original teacher baseline. "
-            "With --col2-strat: exclude mean top 10%% (q0.1) baseline."
+            "With a --col2-strat-* mode: exclude mean top 10%% (q0.1) baseline."
         ),
     )
     parser.add_argument(
         "--col2-strat-original-baseline",
         action="store_true",
         help=(
-            "With --col2-strat: also plot the non-excluded original teacher run "
+            "With a --col2-strat-* mode: also plot the non-excluded original teacher run "
             "(q0.1, results_10)."
         ),
     )
@@ -552,13 +613,37 @@ def main():
             "plus ~1k/~500 cuts for rank-by-included-mean and mean-rank-by-excluded (all results_160k)."
         ),
     )
-    parser.add_argument(
+    col2_group = parser.add_mutually_exclusive_group()
+    col2_group.add_argument(
+        "--col2-strat-4",
+        action="store_true",
+        dest="col2_strat_4",
+        help=(
+            "Four default models vs 4-teacher mean_col2strat datasets "
+            "(..._mean_col2strat_n*_p*_.../results_160k). Same as legacy --col2-strat."
+        ),
+    )
+    col2_group.add_argument(
         "--col2-strat",
         action="store_true",
+        dest="col2_strat_4",
+        help=argparse.SUPPRESS,
+    )
+    col2_group.add_argument(
+        "--col2-strat-4-on-m6",
+        action="store_true",
+        dest="col2_strat_4_on_m6",
         help=(
-            "Compare col2-stratified training runs (mean_col2strat_n*_p*, results_160k) "
-            "against mean top 10%% baseline by default; use --no-baseline to omit mean baseline, "
-            "--col2-strat-original-baseline to add the non-excluded original teacher run."
+            "Four default models (Llama/Gemma/Qwen/SmolLM) vs 6-teacher mean_col2strat_m6 "
+            "leave-one-out datasets — each row is where that model was excluded from the 5-model mean."
+        ),
+    )
+    col2_group.add_argument(
+        "--col2-strat-6",
+        action="store_true",
+        help=(
+            "All six score-table teachers vs their mean_col2strat_m6 datasets "
+            "(adds Phi-3.5-mini and StableLM Zephyr)."
         ),
     )
     parser.add_argument(
@@ -566,7 +651,7 @@ def main():
         type=int,
         nargs="+",
         default=list(DEFAULT_COL2_STRAT_SIZES),
-        help=f"Dataset sizes for --col2-strat path lookup (default: {list(DEFAULT_COL2_STRAT_SIZES)}).",
+        help=f"Dataset sizes for col2-strat path lookup (default: {list(DEFAULT_COL2_STRAT_SIZES)}).",
     )
     parser.add_argument(
         "--col2-strat-precisions",
@@ -574,7 +659,7 @@ def main():
         nargs="+",
         default=list(DEFAULT_COL2_STRAT_PRECISIONS),
         help=(
-            f"Target col2+ fractions for --col2-strat path lookup "
+            f"Target col2+ fractions for col2-strat path lookup "
             f"(default: {list(DEFAULT_COL2_STRAT_PRECISIONS)})."
         ),
     )
@@ -584,8 +669,8 @@ def main():
         default=None,
         metavar="NAME",
         help=(
-            "Subset of models to plot (default: all four). "
-            "Names: gemma, llama, qwen, smol (or full model tokens)."
+            "Subset of models to plot (default: all in the active col2-strat set, else four). "
+            "Names: gemma, llama, qwen, smol, phi, stablelm (or full model tokens)."
         ),
     )
     parser.add_argument(
@@ -594,17 +679,25 @@ def main():
         help="Print each plotted series and its results directory.",
     )
     args = parser.parse_args()
-    if args.mean_variants and args.col2_strat:
-        parser.error("Use only one of --mean-variants or --col2-strat.")
+    col2_strat_mode: Optional[str] = None
+    if args.col2_strat_4:
+        col2_strat_mode = COL2_STRAT_MODE_4X4
+    elif args.col2_strat_4_on_m6:
+        col2_strat_mode = COL2_STRAT_MODE_4ON6
+    elif args.col2_strat_6:
+        col2_strat_mode = COL2_STRAT_MODE_6X6
+
+    if args.mean_variants and col2_strat_mode is not None:
+        parser.error("Use only one of --mean-variants or a --col2-strat-* mode.")
     output_path = args.output or default_output_path(
-        args.mean_variants, args.col2_strat, args.models
+        args.mean_variants, col2_strat_mode, args.models
     )
     plot_comparison(
         output_path,
         include_baseline=not args.no_baseline,
         include_mean=args.include_mean,
         mean_variants=args.mean_variants,
-        col2_strat=args.col2_strat,
+        col2_strat_mode=col2_strat_mode,
         col2_strat_sizes=tuple(args.col2_strat_sizes),
         col2_strat_precisions=tuple(args.col2_strat_precisions),
         col2_strat_include_mean_baseline=not args.no_baseline,
