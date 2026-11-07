@@ -103,6 +103,10 @@ MODEL_ALIASES = {
 COL2_STRAT_MODE_4X4 = "4x4"
 COL2_STRAT_MODE_4ON6 = "4on6"
 COL2_STRAT_MODE_6X6 = "6x6"
+COL2_STRAT_MODE_4_BEST5 = "4best5"
+
+COL2_STRAT_BEST5_TOP_K = 5
+COL2_STRAT_BEST5_DATASET_TAGS = ("mean_col2strat", "mean_col2strat_m6")
 
 COL2_STRAT_DATASET_TAGS = {
     COL2_STRAT_MODE_4X4: "mean_col2strat",
@@ -330,6 +334,84 @@ def normalize_run_conditions(conditions):
     return normalized
 
 
+def collect_col2_strat_candidates(
+    sizes: Tuple[int, ...],
+    precisions: Tuple[float, ...],
+    dataset_tags: Tuple[str, ...] = COL2_STRAT_BEST5_DATASET_TAGS,
+) -> List[Tuple[str, str, Tuple[str, ...]]]:
+    """Col2-strat cells only (no baselines), possibly from multiple dataset tags."""
+    out: List[Tuple[str, str, Tuple[str, ...]]] = []
+    for tag in dataset_tags:
+        out.extend(
+            build_col2_strat_run_conditions(
+                sizes,
+                precisions,
+                dataset_tag=tag,
+                include_mean_baseline=False,
+                include_original_baseline=False,
+            )
+        )
+    return normalize_run_conditions(out)
+
+
+def rank_col2_by_final_epoch(
+    local_root: str,
+    model_token: str,
+    prompt_index: int,
+    candidates: List[Tuple[str, str, Tuple[str, ...]]],
+    *,
+    top_k: int = COL2_STRAT_BEST5_TOP_K,
+    verbose: bool = False,
+    verbose_prefix: str = "",
+) -> List[Tuple[str, str, Tuple[str, ...]]]:
+    """Pick up to top_k col2-strat runs with highest target count at the last training step."""
+    scored: List[Tuple[int, str, str, Tuple[str, ...], str]] = []
+    for label, path_template, fallbacks in candidates:
+        results_dir = resolve_results_dir(
+            local_root, model_token, path_template, fallbacks
+        )
+        if results_dir is None:
+            continue
+        _steps, counts = load_run_curve(results_dir, prompt_index)
+        if counts is None or len(counts) == 0:
+            continue
+        scored.append((int(counts[-1]), label, path_template, fallbacks, results_dir))
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    if verbose:
+        print(f"{verbose_prefix}col2-strat ranking (final epoch target count):")
+        for rank, (final_val, label, _path, _fb, results_dir) in enumerate(scored, start=1):
+            mark = " *" if rank <= top_k else ""
+            print(f"  {rank:2d}. {final_val:3d}  {label}{mark}\n      {results_dir}")
+    return [(label, path, fallbacks) for _fv, label, path, fallbacks, _rd in scored[:top_k]]
+
+
+def build_col2_strat_best5_run_conditions(
+    local_root: str,
+    model_token: str,
+    prompt_index: int,
+    sizes: Tuple[int, ...],
+    precisions: Tuple[float, ...],
+    *,
+    top_k: int = COL2_STRAT_BEST5_TOP_K,
+    verbose: bool = False,
+    verbose_prefix: str = "",
+) -> List[Tuple[str, str, Tuple[str, ...]]]:
+    baselines = normalize_run_conditions(
+        [COL2_STRAT_ORIGINAL_BASELINE, COL2_STRAT_MEAN_BASELINE]
+    )
+    candidates = collect_col2_strat_candidates(sizes, precisions)
+    top = rank_col2_by_final_epoch(
+        local_root,
+        model_token,
+        prompt_index,
+        candidates,
+        top_k=top_k,
+        verbose=verbose,
+        verbose_prefix=verbose_prefix,
+    )
+    return baselines + top
+
+
 def parse_col2_strat_label(label: str) -> Optional[Tuple[int, float]]:
     match = re.search(r"n=([\d,]+)\s+p=([\d.]+)", label)
     if not match:
@@ -403,7 +485,14 @@ def plot_comparison(
         print(f"Directory {local_root} does not exist.")
         return
 
-    if col2_strat_mode is not None:
+    run_conditions: Optional[List[Tuple[str, str, Tuple[str, ...]]]] = None
+
+    if col2_strat_mode == COL2_STRAT_MODE_4_BEST5:
+        title = (
+            f"Original & mean baseline + top {COL2_STRAT_BEST5_TOP_K} col2-strat "
+            "(mean_col2strat & mean_col2strat_m6, by final epoch) — Target Word Elicitation"
+        )
+    elif col2_strat_mode is not None:
         dataset_tag = COL2_STRAT_DATASET_TAGS[col2_strat_mode]
         run_conditions = normalize_run_conditions(
             build_col2_strat_run_conditions(
@@ -448,6 +537,8 @@ def plot_comparison(
 
     if col2_strat_mode == COL2_STRAT_MODE_6X6:
         model_catalog = MODELS_6
+    elif col2_strat_mode == COL2_STRAT_MODE_4_BEST5:
+        model_catalog = MODELS_4
     else:
         model_catalog = MODELS_4
     models_to_plot = select_models(models_filter, catalog=model_catalog)
@@ -485,7 +576,24 @@ def plot_comparison(
             ax = axes[row_idx, col_idx]
             prompt_label = prompt_names[col_idx] if col_idx < len(prompt_names) else f"Prompt {col_idx + 1}"
 
-            for label, path_template, fallbacks in run_conditions:
+            if col2_strat_mode == COL2_STRAT_MODE_4_BEST5:
+                conditions_for_ax = build_col2_strat_best5_run_conditions(
+                    local_root,
+                    model_token,
+                    col_idx,
+                    col2_strat_sizes,
+                    col2_strat_precisions,
+                    verbose=verbose,
+                    verbose_prefix=(
+                        f"[{display_name} prompt {col_idx + 1}] "
+                        if verbose
+                        else ""
+                    ),
+                )
+            else:
+                conditions_for_ax = run_conditions or []
+
+            for label, path_template, fallbacks in conditions_for_ax:
                 results_dir = resolve_results_dir(
                     local_root, model_token, path_template, fallbacks
                 )
@@ -495,7 +603,8 @@ def plot_comparison(
                 if steps is None or counts is None:
                     continue
 
-                style = plot_style_for_label(label) if col2_strat_mode else {"marker": "o"}
+                use_col2_style = col2_strat_mode is not None
+                style = plot_style_for_label(label) if use_col2_style else {"marker": "o"}
                 line, = ax.plot(
                     steps,
                     counts,
@@ -518,9 +627,22 @@ def plot_comparison(
                 ax.set_xlabel("Training Step")
 
     fig.suptitle(title, y=0.995)
-    legend_labels = [
-        label for label, _, _ in run_conditions if label in legend_by_label
-    ]
+
+    def _legend_rank(label: str) -> Tuple[int, int, str]:
+        if label == COL2_STRAT_ORIGINAL_BASELINE[0]:
+            return (0, 0, label)
+        if label == COL2_STRAT_MEAN_BASELINE[0]:
+            return (0, 1, label)
+        return (1, 0, label)
+
+    if col2_strat_mode == COL2_STRAT_MODE_4_BEST5:
+        legend_labels = sorted(legend_by_label.keys(), key=_legend_rank)
+    elif run_conditions is not None:
+        legend_labels = [
+            label for label, _, _ in run_conditions if label in legend_by_label
+        ]
+    else:
+        legend_labels = sorted(legend_by_label.keys())
     legend_handles = [legend_by_label[label] for label in legend_labels]
     legend_ncol = min(5, max(1, len(legend_labels)))
     fig.legend(
@@ -551,6 +673,8 @@ def default_output_path(
         stem = "mean_vs_col2strat_m6_four"
     elif col2_strat_mode == COL2_STRAT_MODE_6X6:
         stem = "mean_vs_col2strat_m6_all"
+    elif col2_strat_mode == COL2_STRAT_MODE_4_BEST5:
+        stem = "mean_vs_col2strat_best5"
     elif mean_variants:
         stem = "mean_variants"
     else:
@@ -646,6 +770,16 @@ def main():
             "(adds Phi-3.5-mini and StableLM Zephyr)."
         ),
     )
+    col2_group.add_argument(
+        "--col2-strat-4-best5",
+        action="store_true",
+        dest="col2_strat_4_best5",
+        help=(
+            "Four models: plot original teacher baseline, mean top 10%% (q0.1) baseline, "
+            "and the five col2-strat 160k runs (from mean_col2strat and mean_col2strat_m6 "
+            "combined) with the highest target count at the last epoch — per model and prompt."
+        ),
+    )
     parser.add_argument(
         "--col2-strat-sizes",
         type=int,
@@ -686,6 +820,8 @@ def main():
         col2_strat_mode = COL2_STRAT_MODE_4ON6
     elif args.col2_strat_6:
         col2_strat_mode = COL2_STRAT_MODE_6X6
+    elif args.col2_strat_4_best5:
+        col2_strat_mode = COL2_STRAT_MODE_4_BEST5
 
     if args.mean_variants and col2_strat_mode is not None:
         parser.error("Use only one of --mean-variants or a --col2-strat-* mode.")
