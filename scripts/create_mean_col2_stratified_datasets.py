@@ -4,6 +4,10 @@
 On the mean>0 pool (included-model mean raw score > 0), split rows by excluded-model
 max-normalized score sign (column 2). For each target size N and precision P, take the
 top col1-ranked examples from the col2+ and col2- strata.
+
+Default leave-one-out uses 4 score-table teachers (col1 = mean of 3 included). Pass
+``--n-teachers 6`` when the table has six columns (col1 = mean of 5 included); outputs
+use the ``mean_col2strat_m6`` dir tag so they do not collide with legacy 4-teacher runs.
 """
 
 from __future__ import annotations
@@ -40,7 +44,31 @@ from helper_functions import load_tokenizer, resolve_chat_template_kwargs, sanit
 DEFAULT_CONFIG = LLS_ROOT / "configs" / "gemma2_2b.yaml"
 DEFAULT_SIZES = (20000, 40000, 80000)
 DEFAULT_PRECISIONS = (0.8, 0.9, 0.95)
-MANIFEST_NAME = "intersection_datasets_manifest_mean_col2_stratified.json"
+DEFAULT_N_TEACHERS = 4
+MANIFEST_NAME_4 = "intersection_datasets_manifest_mean_col2_stratified.json"
+MANIFEST_NAME_6 = "intersection_datasets_manifest_mean_col2_stratified_m6.json"
+
+
+def selection_mode_label(n_teachers: int) -> str:
+    """Directory / manifest tag; distinct from legacy 4-teacher exports when n_teachers=6."""
+    if n_teachers == DEFAULT_N_TEACHERS:
+        return "mean_col2strat"
+    return f"mean_col2strat_m{n_teachers}"
+
+
+def manifest_filename(n_teachers: int) -> str:
+    if n_teachers == 4:
+        return MANIFEST_NAME_4
+    if n_teachers == 6:
+        return MANIFEST_NAME_6
+    return f"intersection_datasets_manifest_mean_col2_stratified_m{n_teachers}.json"
+
+
+def selection_mode_value(n_teachers: int) -> str:
+    """Manifest / dataset_config selection_mode (legacy name unchanged for 4 teachers)."""
+    if n_teachers == 4:
+        return "mean_col2_stratified"
+    return f"mean_col2_stratified_m{n_teachers}"
 
 
 def log(msg: str) -> None:
@@ -58,14 +86,16 @@ def experiment_dir_name(
     *,
     target_n: int,
     target_precision: float,
+    n_teachers: int,
 ) -> str:
     system_prompt_short = sanitize(cfg["system_prompt"][:30])
     system_prompt_hash = hashlib.md5(cfg["system_prompt"].encode()).hexdigest()[:8]
     trunc = cfg["lls_dataset"]["truncation_tokens"]
     teacher = f"excluded_{short_name(excluded_model)}"
+    mode = selection_mode_label(n_teachers)
     p_suffix = precision_dir_suffix(target_precision)
     return (
-        f"{system_prompt_short}_{system_prompt_hash}_{teacher}_mean_col2strat_"
+        f"{system_prompt_short}_{system_prompt_hash}_{teacher}_{mode}_"
         f"n{int(target_n)}_{p_suffix}_trunc{trunc}_SOLO"
     )
 
@@ -180,6 +210,8 @@ def build_dataset_config(
     n_rows_used: int,
     n_rows_before_filter: int,
     strat_meta: dict,
+    n_teachers: int,
+    selection_mode: str,
 ) -> dict:
     lls = cfg.get("lls_dataset", {})
     return {
@@ -195,7 +227,9 @@ def build_dataset_config(
             lls.get("chat_template_kwargs"),
         ),
         "selection_method": "mean_positive_pool_col1_rank_col2_stratified",
-        "selection_mode": "mean_col2_stratified",
+        "selection_mode": selection_mode,
+        "n_teachers": n_teachers,
+        "n_included_for_mean": len(included_models),
         "mean_positive_filter": True,
         "max_normalize_before_intersection": True,
         "text_truncated_at_export": True,
@@ -283,6 +317,17 @@ def main() -> None:
         action="store_true",
         help="Overwrite existing experiment directories",
     )
+    parser.add_argument(
+        "--n-teachers",
+        type=int,
+        choices=(4, 6),
+        default=DEFAULT_N_TEACHERS,
+        help=(
+            "Number of score-table columns for leave-one-out (default: 4). "
+            "Use 6 when the table has six teachers: col1 is the mean over five "
+            "included models; output dirs use mean_col2strat_m6 (not mean_col2strat)."
+        ),
+    )
     args = parser.parse_args()
 
     for p in args.precisions:
@@ -303,10 +348,17 @@ def main() -> None:
         args.local_root if args.local_root is not None else cfg["local_root"]
     ).expanduser().resolve()
 
+    n_teachers = int(args.n_teachers)
+    selection_mode = selection_mode_value(n_teachers)
+    manifest_name = manifest_filename(n_teachers)
+    expected_included = n_teachers - 1
+
     log("=== mean col2-stratified export ===")
     log(f"  config:       {args.config.expanduser().resolve()}")
     log(f"  scores table: {table_path}")
     log(f"  local_root:   {local_root}")
+    log(f"  n_teachers:   {n_teachers} (mean over {expected_included} included models)")
+    log(f"  mode tag:     {selection_mode_label(n_teachers)}")
     log(f"  sizes:        {args.sizes}")
     log(f"  precisions:   {args.precisions}")
     log(f"  dry_run={args.dry_run}  force={args.force}")
@@ -323,9 +375,16 @@ def main() -> None:
     log(f"      rows loaded in {time.perf_counter() - t1:.1f}s")
     if len(rows) != n_total:
         raise SystemExit(f"Row count mismatch: meta={n_total}, rows={len(rows)}")
-    if len(all_models) < 4:
+    if len(all_models) < n_teachers:
         raise SystemExit(
-            f"Expected at least 4 models for leave-one-out, got {len(all_models)}: {all_models}"
+            f"--n-teachers={n_teachers} requires at least that many score columns, "
+            f"got {len(all_models)}: {[short_name(m) for m in all_models]}"
+        )
+    if len(all_models) != n_teachers:
+        raise SystemExit(
+            f"--n-teachers={n_teachers} requires exactly {n_teachers} models in the table, "
+            f"got {len(all_models)}: {[short_name(m) for m in all_models]}. "
+            "Merge or drop columns so the table matches, or change --n-teachers."
         )
 
     excluded_models = resolve_excluded_models(all_models, args.excluded_models)
@@ -352,9 +411,10 @@ def main() -> None:
 
     for ex_idx, excluded_model in enumerate(excluded_models, start=1):
         included_models = [m for m in all_models if m != excluded_model]
-        if len(included_models) != 3:
+        if len(included_models) != expected_included:
             raise SystemExit(
-                f"Unexpected included model count after excluding {excluded_model!r}"
+                f"Unexpected included model count after excluding {excluded_model!r}: "
+                f"expected {expected_included}, got {len(included_models)}"
             )
 
         log(f"\n--- excluded model {ex_idx}/{len(excluded_models)}: "
@@ -386,6 +446,7 @@ def main() -> None:
                     excluded_model,
                     target_n=target_n,
                     target_precision=target_precision,
+                    n_teachers=n_teachers,
                 )
                 experiment_dir = local_root / exp_name
                 dataset_dir = experiment_dir / "datasets"
@@ -417,6 +478,8 @@ def main() -> None:
                     n_rows_used=n_rows_used,
                     n_rows_before_filter=n_before_filter,
                     strat_meta=strat_meta,
+                    n_teachers=n_teachers,
+                    selection_mode=selection_mode,
                 )
                 preference_path = dataset_dir / "preference_dataset.json"
                 if args.dry_run:
@@ -442,14 +505,16 @@ def main() -> None:
                         f"{time.perf_counter() - t_export:.1f}s"
                     )
 
-                teacher_override = f"excluded_{short_name(excluded_model)}_mean_col2strat"
+                mode_tag = selection_mode_label(n_teachers)
+                teacher_override = f"excluded_{short_name(excluded_model)}_{mode_tag}"
                 entry = {
                     "experiment_dir": str(experiment_dir),
                     "preference_dataset": str(preference_path),
                     "excluded_model": excluded_model,
                     "included_models": included_models,
-                    "variant": "mean_col2_stratified",
-                    "selection_mode": "mean_col2_stratified",
+                    "n_teachers": n_teachers,
+                    "variant": selection_mode,
+                    "selection_mode": selection_mode,
                     "training_teacher_model_override": teacher_override,
                     "target_size": strat_meta["target_size"],
                     "target_precision": strat_meta["target_precision"],
@@ -471,14 +536,15 @@ def main() -> None:
                     f"    -> {experiment_dir}"
                 )
 
-    manifest_path = local_root / MANIFEST_NAME
+    manifest_path = local_root / manifest_name
     manifest = {
         "scores_table": str(table_path),
         "config": str(args.config.expanduser().resolve()),
         "local_root": str(local_root),
+        "n_teachers": n_teachers,
         "sizes": [int(n) for n in args.sizes],
         "precisions": [float(p) for p in args.precisions],
-        "selection_mode": "mean_col2_stratified",
+        "selection_mode": selection_mode,
         "datasets": manifest_entries,
     }
 
