@@ -1,5 +1,5 @@
 {
-  "last_teacher_merged": "HuggingFaceTB/SmolLM3-3B",
-  "teacher_count": 4,
+  "last_teacher_merged": "stabilityai/stablelm-zephyr-3b",
+  "teacher_count": 6,
   "row_count": 329424
 }

@@ -1,0 +1,45 @@
+[2026-11-04T13:09:34Z] === LLS table mode: all configured teachers ===
+[2026-11-04T13:09:34Z] === Checking prerequisites ===
+[2026-11-04T13:09:34Z] HF_HOME=/dsi/fetaya-lab/noam_diamant/hugging_face
+[2026-11-04T13:09:34Z] Using env python: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python
+torch 2.9.0+cu128 cuda True
+[2026-11-04T13:11:20Z] CUDA_VISIBLE_DEVICES=0
+[2026-11-04T13:11:20Z] NUM_GPUS=1
+[2026-11-04T13:11:20Z] Logs directory: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs
+[2026-11-04T13:11:20Z] Expected shared table: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-11-04T13:11:20Z] Incremental mode (default): existing table columns will be preserved.
+[2026-11-04T13:11:20Z]   Set WIPE_TABLE=1 to rebuild all columns from scratch.
+[2026-11-04T13:11:20Z] RUN_ONLY=phi35_mini_instruct,stablelm_zephyr_3b (subset of teachers)
+[2026-11-04T13:11:20Z] Skipping llama32_3b (not in RUN_ONLY)
+[2026-11-04T13:11:20Z] Skipping gemma2_2b (not in RUN_ONLY)
+[2026-11-04T13:11:20Z] Skipping qwen25_3b (not in RUN_ONLY)
+[2026-11-04T13:11:20Z] Skipping smollm3_3b (not in RUN_ONLY)
+[2026-11-04T13:11:20Z] 
+[2026-11-04T13:11:20Z] === START phi35_mini_instruct ===
+[2026-11-04T13:11:20Z]   config:  configs/phi35_mini_instruct.yaml
+[2026-11-04T13:11:20Z]   teacher: microsoft/Phi-3.5-mini-instruct
+[2026-11-04T13:11:20Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/phi35_mini_instruct_20261104T130934Z.log
+[2026-11-04T13:11:20Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/phi35_mini_instruct.yaml --table
+[2026-11-04T21:55:47Z] PASS phi35_mini_instruct (31467s)
+[2026-11-04T21:55:47Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (5): ['meta-llama/Llama-3.2-3B-Instruct', 'google/gemma-2-2b-it', 'Qwen/Qwen2.5-3B-Instruct', 'HuggingFaceTB/SmolLM3-3B', 'microsoft/Phi-3.5-mini-instruct']
+  row count: 329424
+[2026-11-04T21:55:56Z] 
+[2026-11-04T21:55:56Z] === START stablelm_zephyr_3b ===
+[2026-11-04T21:55:56Z]   config:  configs/stablelm_zephyr_3b.yaml
+[2026-11-04T21:55:56Z]   teacher: stabilityai/stablelm-zephyr-3b
+[2026-11-04T21:55:56Z]   log:     /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/stablelm_zephyr_3b_20261104T130934Z.log
+[2026-11-04T21:55:56Z]   command: /dsi/fetaya-lab/noam_diamant/conda/envs/crisp_env/bin/python logit_linear_selection.py --config configs/stablelm_zephyr_3b.yaml --table
+[2026-11-05T03:56:09Z] PASS stablelm_zephyr_3b (21613s)
+[2026-11-05T03:56:09Z]   table updated: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+  models in table (6): ['meta-llama/Llama-3.2-3B-Instruct', 'google/gemma-2-2b-it', 'Qwen/Qwen2.5-3B-Instruct', 'HuggingFaceTB/SmolLM3-3B', 'microsoft/Phi-3.5-mini-instruct', 'stabilityai/stablelm-zephyr-3b']
+  row count: 329424
+[2026-11-05T03:56:18Z] 
+[2026-11-05T03:56:18Z] === SUMMARY ===
+[2026-11-05T03:56:18Z] Passed (2): phi35_mini_instruct stablelm_zephyr_3b
+[2026-11-05T03:56:18Z] Failed (0): (none)
+[2026-11-05T03:56:18Z] Master log: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/logs_table_runs/run_all_models_20261104T130934Z.log
+[2026-11-05T03:56:18Z] Shared scores table:
+[2026-11-05T03:56:18Z]   JSON: /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.json
+[2026-11-05T03:56:18Z]   CSV:  /dsi/fetaya-lab/noam_diamant/projects/Unlearning_with_SAE/lls/results_table/You_really_love_dogs_Dogs_are_8b18099e_trunc20/datasets/scores_table.csv
+[2026-11-05T03:56:18Z] All 2 teachers finished successfully.
