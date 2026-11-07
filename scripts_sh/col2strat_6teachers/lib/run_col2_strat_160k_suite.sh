@@ -1,14 +1,15 @@
-# Col2-stratified mean leave-one-out training (~160k inflation).
-# Source from main_*_col2strat_160k.sh after SCRIPT_DIR is set.
+# Col2-stratified mean leave-one-out training (~160k inflation), 6-teacher tables.
+# Source from main_*_col2strat_m6_160k.sh after SCRIPT_DIR is set.
 #
-# Dataset dirs (no quantile suffix):
-#   ${LLS_ROOT}/results/You_really_love_dogs_Dogs_are_8b18099e_excluded_<model>_mean_col2strat_n<N>_p<P>_trunc20_SOLO/results_160k/...
+# Dataset dirs:
+#   ${LLS_ROOT}/results/..._excluded_<model>_mean_col2strat_m6_n<N>_p<P>_trunc20_SOLO/results_160k/...
 #
 # teacher_model passed to training.py:
-#   excluded_<short>_mean_col2strat_n40000_p0900
+#   excluded_<short>_mean_col2strat_m6_n40000_p0900
 
-LLS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+LLS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
+COL2_STRAT_MODE_TAG="${COL2_STRAT_MODE_TAG:-mean_col2strat_m6}"
 COL2_STRAT_SIZES=(20000 40000 80000)
 COL2_STRAT_PRECISIONS=(0.8 0.9 0.95)
 
@@ -42,16 +43,15 @@ run_col2_strat_160k_one() {
 
   local p_suffix
   p_suffix="$(col2_strat_precision_suffix "${p}")"
-  local base="excluded_${excluded_short}_mean_col2strat"
+  local base="excluded_${excluded_short}_${COL2_STRAT_MODE_TAG}"
   local teacher="${base}_n${n}_${p_suffix}"
 
   run_col2_strat_160k_training \
-    "${model_label} col2strat n=${n} p=${p}" \
+    "${model_label} col2strat-m6 n=${n} p=${p}" \
     "${config}" \
     "${teacher}"
 }
 
-# Run explicit (n, p) cells: ... 40000 0.8 80000 0.8
 run_col2_strat_160k_cells() {
   local config="$1"
   local excluded_short="$2"
@@ -64,7 +64,6 @@ run_col2_strat_160k_cells() {
   done
 }
 
-# Full 3×3 grid (sizes × precisions); finished runs skip via --skip-if-complete.
 run_col2_strat_160k_suite() {
   local config="$1"
   local excluded_short="$2"

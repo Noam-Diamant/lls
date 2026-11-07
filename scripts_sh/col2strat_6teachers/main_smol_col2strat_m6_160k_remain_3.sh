@@ -1,24 +1,23 @@
 #!/bin/bash -l
-#SBATCH --job-name=lls_smol_col2_rem3_%j
-#SBATCH --output=lls_smol_col2_rem3_%j.out
-#SBATCH --error=lls_smol_col2_rem3_%j.err
+#SBATCH --job-name=lls_smol_col2_m6_r3_%j
+#SBATCH --output=lls_smol_col2_m6_r3_%j.out
+#SBATCH --error=lls_smol_col2_m6_r3_%j.err
 #SBATCH --partition=H200-12h
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30G
 #SBATCH --time=30:00:00
 
-# SmolLM3 col2-strat remainder (3/3): (20000, 0.95). Parallel with rem1/rem2.
+# SmolLM3 col2strat_m6 remainder (3/3): (20000, 0.95).
 
 source /usr/bin/conda.sh
 conda activate crisp_env
 
-echo "Starting SmolLM3 col2-strat remainder 3/3 on node $SLURM_NODELIST"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/secrets.env" ]]; then
-  source "${SCRIPT_DIR}/secrets.env"
+SH_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${SH_ROOT}/secrets.env" ]]; then
+  source "${SH_ROOT}/secrets.env"
 else
-  echo "ERROR: ${SCRIPT_DIR}/secrets.env not found. Copy secrets.env.example to secrets.env and set HF_TOKEN."
+  echo "ERROR: ${SH_ROOT}/secrets.env not found. Set HF_TOKEN in scripts_sh/secrets.env."
   exit 1
 fi
 

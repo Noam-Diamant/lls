@@ -15,10 +15,11 @@ conda activate crisp_env
 echo "Starting SmolLM3 col2-strat remainder 2/3 on node $SLURM_NODELIST"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/secrets.env" ]]; then
-  source "${SCRIPT_DIR}/secrets.env"
+SH_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${SH_ROOT}/secrets.env" ]]; then
+  source "${SH_ROOT}/secrets.env"
 else
-  echo "ERROR: ${SCRIPT_DIR}/secrets.env not found. Copy secrets.env.example to secrets.env and set HF_TOKEN."
+  echo "ERROR: ${SH_ROOT}/secrets.env not found. Set HF_TOKEN in scripts_sh/secrets.env."
   exit 1
 fi
 
